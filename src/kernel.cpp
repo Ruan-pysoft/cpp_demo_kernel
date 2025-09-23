@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <stdio.h>
+
 #include "vga.hpp"
 
 /* Check if the compiler thinks you are targeting the wrong operating system */
@@ -53,12 +55,13 @@ void kernel_main(void) {
 	Foo *p_foo = &g_foo;
 	p_foo->bar();
 
-	term_writestring("This first line will be scrolled offscreen\n");
-	term_putchar('\n');
-	term_putchar('\n');
+	puts("This first line will be scrolled offscreen");
+	putchar('\n');
+	putchar('\n');
 
 	/* Newline support is left as an exercise. */
-	term_writestring("Hello, kernel world!\n");
+	puts("Hello, kernel world!");
+
 	term_writestring("Kyk, ek kan selfs Afrikaans hier skryf! D" "\xA1" "e projek is ");
 	term_setcolor(vga_entry_color(
 		vga_color(uint8_t(vga_fgcolor(term_getcolor()))^8),
@@ -67,20 +70,24 @@ void kernel_main(void) {
 	term_writestring("cool");
 	term_resetcolor();
 	term_writestring(" omdat:\n");
-	term_writestring(" - foo\n");
-	term_writestring(" - bar\n");
-	term_writestring(" - baz\n");
-	term_writestring("Lorum ipsum dolor set...\n");
 
-	term_writestring("\nCharacter set:\n");
+	puts(" - foo");
+	puts(" - bar");
+	puts(" - baz");
+	puts("Lorum ipsum dolor set...");
+
+	putchar('\n');
+	puts("Character set:");
 	for (uint8_t high_half = 0; high_half < 0xF; ++high_half) {
 		constexpr uint16_t indent = 0x2020;
 		term_write_raw((uint8_t*)&indent, 2);
 		for (uint8_t low_half = 0; low_half < 0xF; ++low_half) {
 			term_putbyte(low_half + (high_half << 4));
 		}
-		term_putchar('\n');
+		putchar('\n');
 	}
 
-	term_putchar('\n');
+	putchar('\n');
+
+	printf("%d\n", 42);
 }

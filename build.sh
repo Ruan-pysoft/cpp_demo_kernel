@@ -44,6 +44,9 @@ OBJS="$OBJS $BUILDDIR/ioport.o"
 
 LIBK_OBJS=""
 
+# For adding objects (vim, replace stdio with relevant header):
+# '<,'>s/\(.*\)\.cpp/$CC $CFLAGS -c $SRCDIR\/libk\/stdio\/\1.cpp -o $BUILDDIR\/libk-stdio-\1.o\rLIBK_OBJS="$LIBK_OBJS $BUILDDIR\/libk-stdio-\1.o"
+
 $CC $CFLAGS -c $SRCDIR/libk/string/memcmp.cpp -o $BUILDDIR/libk-string-memcmp.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-memcmp.o"
 $CC $CFLAGS -c $SRCDIR/libk/string/memcpy.cpp -o $BUILDDIR/libk-string-memcpy.o
@@ -54,6 +57,16 @@ $CC $CFLAGS -c $SRCDIR/libk/string/memset.cpp -o $BUILDDIR/libk-string-memset.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-memset.o"
 $CC $CFLAGS -c $SRCDIR/libk/string/strlen.cpp -o $BUILDDIR/libk-string-strlen.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-strlen.o"
+
+$CC $CFLAGS -c $SRCDIR/libk/stdio/printf.cpp -o $BUILDDIR/libk-stdio-printf.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdio-printf.o"
+$CC $CFLAGS -c $SRCDIR/libk/stdio/putchar.cpp -o $BUILDDIR/libk-stdio-putchar.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdio-putchar.o"
+$CC $CFLAGS -c $SRCDIR/libk/stdio/puts.cpp -o $BUILDDIR/libk-stdio-puts.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdio-puts.o"
+
+$CC $CFLAGS -c $SRCDIR/libk/stdlib/abort.cpp -o $BUILDDIR/libk-stdlib-abort.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-abort.o"
 
 $AS $SRCDIR/crti.s -o $BUILDDIR/crti.o
 $AS $SRCDIR/crtn.s -o $BUILDDIR/crtn.o
