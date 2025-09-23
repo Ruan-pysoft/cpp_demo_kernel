@@ -87,7 +87,7 @@ void kernel_main(void) {
 		putchar('\n');
 	}
 
-	putchar('\n');
+	const char *answer_seekers_computer_builders = "mouse people";
 
-	printf("%d\n", 42);
+	printf("Hi there %s, the answer to your query is: %d\n", answer_seekers_computer_builders, 42);
 }

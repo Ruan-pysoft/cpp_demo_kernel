@@ -1,12 +1,10 @@
 #include <stdlib.h>
 
-void abort(void) {
-	asm volatile(
-		"cli\n"
-		".stdlib_abort_hltloop: hlt\n"
-		"jmp .stdlib_abort_hltloop\n"
-		:::
-	);
+#include <stdio.h>
 
+__attribute__((__noreturn__))
+void abort(void) {
+	puts("kernel: panic: abort()");
+	while (1) { asm volatile("hlt"); }
 	__builtin_unreachable();
 }
