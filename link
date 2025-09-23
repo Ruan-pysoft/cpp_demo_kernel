@@ -1,0 +1,3 @@
+#!/bin/sh
+
+$HOME/opt/cross/bin/i686-elf-gcc -T src/linker.ld -o build/myos.bin -ffreestanding -O2 -nostdlib build/boot.o build/kernel.o -lgcc

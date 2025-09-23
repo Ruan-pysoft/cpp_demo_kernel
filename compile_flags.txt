@@ -1,0 +1,7 @@
+-ffreestanding
+-Wall
+-Wextra
+-pedantic
+-fno-exceptions
+-fno-rtti
+-nostdlib
