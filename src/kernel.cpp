@@ -23,9 +23,35 @@ extern "C" {
  */
 /* also, to avoid name mangling */
 
-void kernel_main(void) {
+void kernel_early_main(void) {
 	/* Initialize terminal interface */
 	term_init();
+}
+
+void kernel_main(void);
+
+}
+
+class Foo {
+	const char *str;
+public:
+	Foo() : str("baz") {}
+
+	void bar() {
+		term_writestring(str);
+		term_writestring(": ");
+	}
+};
+
+Foo g_foo;
+
+/*
+ * put the actual implementation outside of the extern "C" section, idk if I
+ * can use c++ features inside the extern "C" section
+ */
+void kernel_main(void) {
+	Foo *p_foo = &g_foo;
+	p_foo->bar();
 
 	term_writestring("This first line will be scrolled offscreen\n");
 	term_putchar('\n');
@@ -57,6 +83,4 @@ void kernel_main(void) {
 	}
 
 	term_putchar('\n');
-}
-
 }
