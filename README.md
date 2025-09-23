@@ -1,4 +1,4 @@
-Based on the [Bare Bones guid](https://wiki.osdev.org/Bare_Bones) on the osdev wiki.
+Based on the [Bare Bones](https://wiki.osdev.org/Bare_Bones) and the [Meaty Skeleton](https://wiki.osdev.org/Meaty_Skeleton) guides on the osdev wiki.
 
 Run `source profile.sh` to add the cross-compilation binaries to your path.
 
