@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 constexpr size_t VGA_WIDTH  = 80;
 constexpr size_t VGA_HEIGHT = 25;

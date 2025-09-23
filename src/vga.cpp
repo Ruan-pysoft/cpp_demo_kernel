@@ -1,9 +1,9 @@
 #include "vga.hpp"
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
-#include "string.hpp"
+#include <string.h>
 #include "ioport.hpp"
 
 static size_t term_row;

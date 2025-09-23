@@ -6,3 +6,4 @@
 -fno-rtti
 -nostdlib
 -I./include
+-isystem ./include/libk
