@@ -76,7 +76,7 @@ public:
 	~Dynamic() {
 		printf("~Dynamic(\"%s\")\n", data);
 
-		free(data);
+		delete[] data;
 	}
 
 	void poke() {

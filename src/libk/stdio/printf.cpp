@@ -70,6 +70,57 @@ static int print_int32(int32_t d) {
 
 	return len;
 }
+static int print_hex32(int32_t x) {
+	// stolen from https://git.sr.ht/~ruan_p/ministdlib/tree/master/item/src/ministd_fmt.c#L50
+	// (code written by me for my custom c runtime)
+
+	/* max int is 2^32-1 = 16^8-1, so no more than 8 digits */
+	char buf[8];
+	size_t len = 0;
+
+	if (x == 0) {
+		putchar('0');
+		return 1;
+	}
+
+	len = 0;
+	while (len <= 10 && x > 0) {
+		const uint8_t digit = x&0xF;
+
+		if (digit < 10) buf[8-len] = '0' + digit;
+		else buf[8-len] = 'a' - 10 + digit;
+
+		x >>= 4;
+		++len;
+	}
+
+	term_write(&buf[8-len + 1], len);
+
+	return len;
+}
+static int print_pointer(void *p) {
+	// stolen from https://git.sr.ht/~ruan_p/ministdlib/tree/master/item/src/ministd_fmt.c#L50
+	// (code written by me for my custom c runtime)
+
+	size_t x = (size_t)p;
+
+	/* max int is 2^32-1 = 16^8-1, so 8 digits */
+	char buf[8];
+
+	for (size_t len = 0; len < 8; ++len) {
+		const uint8_t digit = x&0xF;
+
+		if (digit < 10) buf[8-len] = '0' + digit;
+		else buf[8-len] = 'a' - 10 + digit;
+
+		x >>= 4;
+	}
+
+	term_writestring("0x");
+	term_write(buf, 8);
+
+	return 10;
+}
 
 int printf(const char *__restrict format, ...) {
 	/*
@@ -141,6 +192,24 @@ int printf(const char *__restrict format, ...) {
 			if (maxrem < 11) return -1; // overflow
 
 			written += print_int32(d);
+		} else if (*format == 'x') {
+			++format;
+
+			const uint32_t x = (uint32_t)va_arg(parameters, uint32_t);
+			/* max int is 2^31-1 ~= 10^9 * 2, so no more than 10 digits */
+			/* can also be negative, so add an extra character for the sign */
+			if (maxrem < 8) return -1; // overflow
+
+			written += print_hex32(x);
+		} else if (*format == 'p') {
+			++format;
+
+			void *const p = (void*)va_arg(parameters, void*);
+			/* max int is 2^31-1 ~= 10^9 * 2, so no more than 10 digits */
+			/* can also be negative, so add an extra character for the sign */
+			if (maxrem < 10) return -1; // overflow
+
+			written += print_pointer(p);
 		} else {
 			// if unknown format specifier, seems we just give up?
 
