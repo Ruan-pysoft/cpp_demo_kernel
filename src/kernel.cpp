@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "vga.hpp"
 
@@ -62,6 +63,29 @@ public:
 	void inc() { ++i; }
 };
 
+class Dynamic {
+	char *data;
+	size_t size;
+public:
+	Dynamic(const char *str) : size(strlen(str)) {
+		printf("Dynamic(\"%s\")\n", str);
+
+		data = new char[size+1];
+		memcpy(data, str, size+1);
+	}
+	~Dynamic() {
+		printf("~Dynamic(\"%s\")\n", data);
+
+		free(data);
+	}
+
+	void poke() {
+		for (size_t i = 0; i < size; ++i) {
+			data[i] ^= 'a'^'A';
+		}
+	}
+};
+
 /*
  * put the actual implementation outside of the extern "C" section, idk if I
  * can use c++ features inside the extern "C" section
@@ -113,7 +137,13 @@ void kernel_main(void) {
 
 	printf("Hi there %s, the answer to your query is: %d\n", answer_seekers_computer_builders, 42);
 
-	// p_foo->~Foo();
+	Dynamic stack_var("plates");
+	Dynamic *heap_var = new Dynamic("Compost");
+
+	stack_var.poke();
+	heap_var->poke();
+
+	delete heap_var;
 }
 
 extern "C" void __cxa_pure_virtual() {
