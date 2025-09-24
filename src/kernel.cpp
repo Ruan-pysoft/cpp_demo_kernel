@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "vga.hpp"
 
@@ -38,6 +39,9 @@ class Foo {
 	const char *str;
 public:
 	Foo() : str("baz") {}
+	~Foo() {
+		printf("Bye!\n");
+	}
 
 	void bar() {
 		term_writestring(str);
@@ -47,6 +51,17 @@ public:
 
 Foo g_foo;
 
+class Static {
+	int i;
+public:
+	Static(int i) : i(i) {}
+	~Static() {}
+
+	int geti() { return i; }
+	void seti(int newi) { i = newi; }
+	void inc() { ++i; }
+};
+
 /*
  * put the actual implementation outside of the extern "C" section, idk if I
  * can use c++ features inside the extern "C" section
@@ -54,6 +69,11 @@ Foo g_foo;
 void kernel_main(void) {
 	Foo *p_foo = &g_foo;
 	p_foo->bar();
+
+	static Static s_var(13);
+
+	s_var.inc();
+	printf(":%d:", s_var.geti());
 
 	puts("This first line will be scrolled offscreen");
 	putchar('\n');
@@ -76,6 +96,7 @@ void kernel_main(void) {
 	puts(" - baz");
 	puts("Lorum ipsum dolor set...");
 
+	// /*
 	putchar('\n');
 	puts("Character set:");
 	for (uint8_t high_half = 0; high_half < 0xF; ++high_half) {
@@ -86,8 +107,16 @@ void kernel_main(void) {
 		}
 		putchar('\n');
 	}
+	// */
 
 	const char *answer_seekers_computer_builders = "mouse people";
 
 	printf("Hi there %s, the answer to your query is: %d\n", answer_seekers_computer_builders, 42);
+
+	// p_foo->~Foo();
+}
+
+extern "C" void __cxa_pure_virtual() {
+	puts("failed creating pure virtual function!");
+	abort();
 }

@@ -67,6 +67,19 @@ LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdio-puts.o"
 
 $CC $CFLAGS -c $SRCDIR/libk/stdlib/abort.cpp -o $BUILDDIR/libk-stdlib-abort.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-abort.o"
+$CC $CFLAGS -c $SRCDIR/libk/stdlib/calloc.cpp -o $BUILDDIR/libk-stdlib-calloc.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-calloc.o"
+$CC $CFLAGS -c $SRCDIR/libk/stdlib/free.cpp -o $BUILDDIR/libk-stdlib-free.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-free.o"
+$CC $CFLAGS -c $SRCDIR/libk/stdlib/malloc.cpp -o $BUILDDIR/libk-stdlib-malloc.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-malloc.o"
+$CC $CFLAGS -c $SRCDIR/libk/stdlib/reallocarray.cpp -o $BUILDDIR/libk-stdlib-reallocarray.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-reallocarray.o"
+$CC $CFLAGS -c $SRCDIR/libk/stdlib/realloc.cpp -o $BUILDDIR/libk-stdlib-realloc.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-realloc.o"
+
+$CC $CFLAGS -c $SRCDIR/libk/cppsupport.cpp -o $BUILDDIR/libk-cppsupport.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-cppsupport.o"
 
 $AS $SRCDIR/crti.s -o $BUILDDIR/crti.o
 $AS $SRCDIR/crtn.s -o $BUILDDIR/crtn.o
