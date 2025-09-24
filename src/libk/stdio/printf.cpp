@@ -107,7 +107,7 @@ static int print_pointer(void *p) {
 	/* max int is 2^32-1 = 16^8-1, so 8 digits */
 	char buf[8];
 
-	for (size_t len = 0; len < 8; ++len) {
+	for (size_t len = 1; len <= 8; ++len) {
 		const uint8_t digit = x&0xF;
 
 		if (digit < 10) buf[8-len] = '0' + digit;
