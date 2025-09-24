@@ -65,6 +65,8 @@ LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdio-putchar.o"
 $CC $CFLAGS -c $SRCDIR/libk/stdio/puts.cpp -o $BUILDDIR/libk-stdio-puts.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdio-puts.o"
 
+$CC $CFLAGS -c $SRCDIR/libk/stdlib/_mm_internals.cpp -o $BUILDDIR/libk-stdlib-_mm_internals.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-_mm_internals.o"
 $CC $CFLAGS -c $SRCDIR/libk/stdlib/abort.cpp -o $BUILDDIR/libk-stdlib-abort.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-abort.o"
 $CC $CFLAGS -c $SRCDIR/libk/stdlib/calloc.cpp -o $BUILDDIR/libk-stdlib-calloc.o
