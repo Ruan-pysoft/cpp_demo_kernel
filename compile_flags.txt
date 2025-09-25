@@ -1,3 +1,4 @@
+-m32
 -ffreestanding
 -Wall
 -Wextra
@@ -6,4 +7,5 @@
 -fno-rtti
 -nostdlib
 -I./include
--isystem ./include/libk
+-nostdinc++
+-isystem./include/libk
