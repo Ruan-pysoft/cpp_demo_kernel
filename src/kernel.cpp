@@ -66,8 +66,12 @@ public:
 class Dynamic {
 	char *data;
 	size_t size;
+	// add some fields to hopefully prevent the new from not being called?
+	bool b;
+	int inum;
+	float stuff[16];
 public:
-	Dynamic(const char *str) : size(strlen(str)) {
+	Dynamic(const char *str) : size(strlen(str)), b(true), inum(42), stuff{0} {
 		printf("Dynamic(\"%s\")\n", str);
 
 		data = new char[size+1];
@@ -75,6 +79,7 @@ public:
 	}
 	~Dynamic() {
 		printf("~Dynamic(\"%s\")\n", data);
+		printf("%d %d %p\n", b, inum, stuff);
 
 		delete[] data;
 	}
@@ -144,6 +149,11 @@ void kernel_main(void) {
 	heap_var->poke();
 
 	delete heap_var;
+
+	static Static *ds_var = new Static(4);
+
+	ds_var->inc();
+	printf(":%d:", ds_var->geti());
 }
 
 extern "C" void __cxa_pure_virtual() {
