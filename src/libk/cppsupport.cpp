@@ -69,29 +69,29 @@ namespace __cxxabiv1 {
 }
 
 void *operator new(size_t size) {
-	printf("new(%u)\n", size);
+	//printf("new(%u)\n", size);
 	return calloc(size, 1);
 }
 void *operator new[](size_t size) {
-	printf("new[](%u)\n", size);
+	//printf("new[](%u)\n", size);
 	return calloc(size, 1);
 }
 void operator delete(void *p) {
-	printf("delete %p\n", p);
+	//printf("delete %p\n", p);
 	free(p);
 }
 void operator delete[](void *p) {
-	printf("delete[] %p\n", p);
+	//printf("delete[] %p\n", p);
 	free(p);
 }
 // no special support for sized deletes (idk why you'd have them honestly??)
 void operator delete(void *p, size_t size) {
 	(void)size;
-	printf("delete(%u) %p\n", size, p);
+	//printf("delete(%u) %p\n", size, p);
 	free(p);
 }
 void operator delete[](void *p, size_t size) {
 	(void)size;
-	printf("delete[](%u) %p\n", size, p);
+	//printf("delete[](%u) %p\n", size, p);
 	free(p);
 }

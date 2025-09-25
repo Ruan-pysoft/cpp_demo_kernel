@@ -5,7 +5,7 @@
 using namespace _mm_internals;
 
 void free(void *p) {
-	printf("freeing memory at %p\n", p);
+	//printf("freeing memory at %p\n", p);
 	if (!p) return;
 
 	// pointer should point to right after the header structure

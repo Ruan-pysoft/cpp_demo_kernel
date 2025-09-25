@@ -7,7 +7,7 @@ using namespace _mm_internals;
 void *malloc(size_t size) {
 	if (size == 0) return NULL;
 
-	printf("malloc'ing memory of size %d\n", size);
+	//printf("malloc'ing memory of size %d\n", size);
 
 	size_t blocks_to_alloc = (size + HEADER_SIZE) / MIN_ALLOC_SIZE;
 	if (blocks_to_alloc*MIN_ALLOC_SIZE < size + HEADER_SIZE) {

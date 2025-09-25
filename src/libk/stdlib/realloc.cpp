@@ -14,7 +14,7 @@ void *realloc(void *p, size_t size) {
 		return malloc(size);
 	}
 
-	printf("realloc'ing memory at %p to size %d\n", p, size);
+	//printf("realloc'ing memory at %p to size %d\n", p, size);
 
 	// I could take the easy way out here of malloc, memcpy, free,
 	// but honestly I've got such a good (and crazy) memory model going
