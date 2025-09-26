@@ -10,6 +10,7 @@
 #include "vga.hpp"
 #include "isr.hpp"
 #include "reload_segments.hpp"
+#include "pic.hpp"
 
 /* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
@@ -104,6 +105,9 @@ extern "C" void kernel_main(void);
 void kernel_early_main() {
 	/* Initialize terminal interface */
 	term_init();
+
+	/* initialise PIC (for eg. keyboard input & timers */
+	pic::init();
 
 	// set up the GDT
 	// see https://wiki.osdev.org/GDT_Tutorial

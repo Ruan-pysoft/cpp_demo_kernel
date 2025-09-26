@@ -11,3 +11,7 @@ uint16_t inw(uint16_t port);
 uint32_t indw(uint16_t port);
 
 }
+
+static inline void io_wait() {
+	outb(0x80, 0); // send data to unused port to cause small delay
+}

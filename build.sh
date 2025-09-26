@@ -47,6 +47,8 @@ $AS $SRCDIR/ioport.s -o $BUILDDIR/ioport.o
 OBJS="$OBJS $BUILDDIR/ioport.o"
 $CC $CFLAGS -c $SRCDIR/blit.cpp -o $BUILDDIR/blit.o
 OBJS="$OBJS $BUILDDIR/blit.o"
+$CC $CFLAGS -c $SRCDIR/pic.cpp -o $BUILDDIR/pic.o
+OBJS="$OBJS $BUILDDIR/pic.o"
 
 LIBK_OBJS=""
 
