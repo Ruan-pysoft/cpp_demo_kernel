@@ -3,10 +3,19 @@
 #include "ioport.hpp"
 
 static volatile uint32_t sleep_counter = 0;
+static bool course = false;
 
 void pit_handle_trigger() {
-	++pit::millis;
-	if (sleep_counter > 0) --sleep_counter;
+	if (!course) {
+		++pit::millis;
+		if (sleep_counter > 0) --sleep_counter;
+	} else {
+		pit::millis += 16;
+		if (sleep_counter > 0) {
+			if (sleep_counter <= 16) sleep_counter = 0;
+			else sleep_counter -= 16;
+		}
+	}
 }
 
 namespace pit {
@@ -47,5 +56,18 @@ namespace pit {
 		while (pit::millis < system_time) {
 			asm volatile("hlt");
 		}
+	}
+	void sleep_coarse(uint32_t millis) {
+		sleep_counter = millis;
+
+		set_pit_count(19091);
+		course = true;
+
+		while (sleep_counter) {
+			asm volatile("hlt");
+		}
+
+		course = false;
+		set_pit_count(1193);
 	}
 }

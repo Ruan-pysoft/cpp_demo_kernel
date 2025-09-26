@@ -38,4 +38,5 @@ namespace pit {
 
 	void sleep(uint32_t millis);
 	void sleep_until(uint32_t system_time);
+	void sleep_coarse(uint32_t millis);
 }
