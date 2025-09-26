@@ -11,6 +11,7 @@
 #include "isr.hpp"
 #include "reload_segments.hpp"
 #include "pic.hpp"
+#include "pit.hpp"
 
 /* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
@@ -106,9 +107,6 @@ void kernel_early_main() {
 	/* Initialize terminal interface */
 	term_init();
 
-	/* initialise PIC (for eg. keyboard input & timers */
-	pic::init();
-
 	// set up the GDT
 	// see https://wiki.osdev.org/GDT_Tutorial
 	// and https://wiki.osdev.org/Global_Descriptor_Table
@@ -171,11 +169,28 @@ void kernel_early_main() {
 	idt[0x1D] = IDT_FLT(isr0x1D_CPU);
 	idt[0x1E] = IDT_FLT(isr0x1E_CPU);
 	idt[0x1F] = IDT_FLT(isr0x1F_CPU);
+
+	idt[0x20] = IDT_FLT(isr0x20_IRQ);
+	idt[0x21] = IDT_FLT(isr0x21_IRQ);
+	idt[0x22] = IDT_FLT(isr0x22_IRQ);
+	idt[0x23] = IDT_FLT(isr0x23_IRQ);
+	idt[0x24] = IDT_FLT(isr0x24_IRQ);
+	idt[0x25] = IDT_FLT(isr0x25_IRQ);
+	idt[0x26] = IDT_FLT(isr0x26_IRQ);
+	idt[0x27] = IDT_FLT(isr0x27_IRQ);
+	idt[0x28] = IDT_FLT(isr0x28_IRQ);
+	idt[0x29] = IDT_FLT(isr0x29_IRQ);
+	idt[0x2A] = IDT_FLT(isr0x2A_IRQ);
+	idt[0x2B] = IDT_FLT(isr0x2B_IRQ);
+	idt[0x2C] = IDT_FLT(isr0x2C_IRQ);
+	idt[0x2D] = IDT_FLT(isr0x2D_IRQ);
+	idt[0x2E] = IDT_FLT(isr0x2E_IRQ);
+	idt[0x2F] = IDT_FLT(isr0x2F_IRQ);
 	#undef IDT_FLT
 	#undef IDT_TRP
 	#undef IDT_INT
 
-	const uint16_t idt_size = sizeof(*idt)*0x1F;
+	const uint16_t idt_size = sizeof(*idt)*0x2F;
 	const uint32_t idt_addr = uint32_t(idt);
 
 	idt_descriptor = idt_addr;
@@ -188,6 +203,12 @@ void kernel_early_main() {
 
 	asm volatile("lidt %[idtr]" :: [idtr] "m" (idt_descriptor) : "memory");
 	asm volatile("sti");
+
+	/* initialise PIC (for eg. keyboard input & timers */
+	pic::init();
+
+	/* initialise PIT */
+	pit::init_pit0();
 }
 
 class Foo {
@@ -308,6 +329,8 @@ void kernel_main(void) {
 
 	ds_var->inc();
 	printf(":%d:", ds_var->geti());
+
+	printf("Milliseconds since startup: %u\n", pit::millis);
 }
 
 extern "C" void __cxa_pure_virtual() {

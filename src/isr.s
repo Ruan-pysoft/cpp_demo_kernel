@@ -171,6 +171,37 @@ isr_stub_noerr isr0x1F_CPU
 1: .ascii "trigerred CPU exception vector"
 2:
 
+.global isr0x20_IRQ /* PIT timer triggers */
+isr0x20_IRQ:
+	pushal
+
+	call pit_handle_trigger
+
+	mov $0x20, %al
+	outb %al, $0x20 /* send EOI to the pic */
+
+	popal
+	iret
+
+isr_stub_noerr isr0x21_IRQ
+isr_stub_noerr isr0x22_IRQ
+isr_stub_noerr isr0x23_IRQ
+isr_stub_noerr isr0x24_IRQ
+isr_stub_noerr isr0x25_IRQ
+isr_stub_noerr isr0x26_IRQ
+isr_stub_noerr isr0x27_IRQ
+isr_stub_noerr isr0x28_IRQ
+isr_stub_noerr isr0x29_IRQ
+isr_stub_noerr isr0x2A_IRQ
+isr_stub_noerr isr0x2B_IRQ
+isr_stub_noerr isr0x2C_IRQ
+isr_stub_noerr isr0x2D_IRQ
+isr_stub_noerr isr0x2E_IRQ
+isr_stub_noerr isr0x2F_IRQ
+
+1: .ascii "triggered IRQ"
+2:
+
 error_code: .word 0
 error_code_msg: .ascii "Error code: "
 error_code_msg_end:

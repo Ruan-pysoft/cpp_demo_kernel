@@ -33,7 +33,23 @@
 	X(0x1C, CPU) \
 	X(0x1D, CPU) \
 	X(0x1E, CPU) \
-	X(0x1F, CPU)
+	X(0x1F, CPU) \
+	X(0x20, IRQ) \
+	X(0x21, IRQ) \
+	X(0x22, IRQ) \
+	X(0x23, IRQ) \
+	X(0x24, IRQ) \
+	X(0x25, IRQ) \
+	X(0x26, IRQ) \
+	X(0x27, IRQ) \
+	X(0x28, IRQ) \
+	X(0x29, IRQ) \
+	X(0x2A, IRQ) \
+	X(0x2B, IRQ) \
+	X(0x2C, IRQ) \
+	X(0x2D, IRQ) \
+	X(0x2E, IRQ) \
+	X(0x2F, IRQ)
 #define X(isr_num, isr_id) extern "C" void isr ## isr_num ## _ ## isr_id(void);
 ISRS
 #undef X

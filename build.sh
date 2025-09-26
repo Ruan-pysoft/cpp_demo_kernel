@@ -49,6 +49,8 @@ $CC $CFLAGS -c $SRCDIR/blit.cpp -o $BUILDDIR/blit.o
 OBJS="$OBJS $BUILDDIR/blit.o"
 $CC $CFLAGS -c $SRCDIR/pic.cpp -o $BUILDDIR/pic.o
 OBJS="$OBJS $BUILDDIR/pic.o"
+$CC $CFLAGS -c $SRCDIR/pit.cpp -o $BUILDDIR/pit.o
+OBJS="$OBJS $BUILDDIR/pit.o"
 
 LIBK_OBJS=""
 
