@@ -34,6 +34,10 @@ OBJS=""
 
 $AS $SRCDIR/boot.s -o $BUILDDIR/boot.o
 OBJS="$OBJS $BUILDDIR/boot.o"
+$AS $SRCDIR/isr.s -o $BUILDDIR/isr.o
+OBJS="$OBJS $BUILDDIR/isr.o"
+nasm -f elf32 $SRCDIR/reload_segments.nasm -o $BUILDDIR/reload_segments.o
+OBJS="$OBJS $BUILDDIR/reload_segments.o"
 
 $CC $CFLAGS -c $SRCDIR/kernel.cpp -o $BUILDDIR/kernel.o
 OBJS="$OBJS $BUILDDIR/kernel.o"
@@ -41,6 +45,8 @@ $CC $CFLAGS -c $SRCDIR/vga.cpp -o $BUILDDIR/vga.o
 OBJS="$OBJS $BUILDDIR/vga.o"
 $AS $SRCDIR/ioport.s -o $BUILDDIR/ioport.o
 OBJS="$OBJS $BUILDDIR/ioport.o"
+$CC $CFLAGS -c $SRCDIR/blit.cpp -o $BUILDDIR/blit.o
+OBJS="$OBJS $BUILDDIR/blit.o"
 
 LIBK_OBJS=""
 
