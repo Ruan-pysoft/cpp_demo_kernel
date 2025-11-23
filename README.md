@@ -17,3 +17,46 @@ This decision also has other effects: There is no point in setting up paging, ra
 I might try switching over to [nob.h](https://github.com/nob.h) if managing the builds through a `.sh` file becomes too unwieldy. (I could also do a `Makefile`, and while I *can* do makefiles, and I *do* have other projects I can steal makefiles from, makefiles are weird and icky and I don't like them)
 
 (By now I've used nob.h for a few different projects, including [getting ps/2 support working in a kernel](https://github.com/Ruan-pysoft/ps2keyboard_demo), and I absolutely love it. I'll definitely switch over at some point, the shell script is butt-ugly)
+
+## Licensing
+
+This kernel is set free under the [Unlicense](https://unlicense.org/).
+This means that it is released into the public domain
+for all to use as they see fit.
+Use it in a way I'll approve of,
+use it in a way I won't,
+doesn't make much of a difference to me.
+
+I only ask (as a request in the name of common courtesy,
+**not** as a legal requirement of any sort)
+that you do not claim this work as your own
+but credit me as appropriate.
+
+The full terms are as follows:
+
+```
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org/>
+```
