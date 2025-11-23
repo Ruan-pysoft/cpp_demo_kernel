@@ -6,6 +6,12 @@ Entry point, setup, teardown: `src/boot.s`
 
 Global constructors/destructors: `src/crti.s` + `src/crtn.s`
 
+GDT initialisation and loading: `src/gdt.cpp` + `include/gdt.hpp`  
+Honestly, compare this to a [GDT implemented in assembly](https://github.com/Ruan-pysoft/ps2keyboard_demo/blob/master/src/gdt.s), and I think I might just rewrite it in assembly at some point, because the C++ looks _ugly_.
+
+IDT initialisation and loading: `src/idt.cpp` + `include/idt.hpp`  
+See my comment for `src/gdt.cpp`; [this](https://github.com/Ruan-pysoft/ps2keyboard_demo/blob/master/src/idt.s) just looks so much better
+
 Main code: `src/kernel.c`
 
 VGA text-mode interface: `src/vga.cpp` + `include/vga.hpp`

@@ -53,6 +53,10 @@ $CC $CFLAGS -c $SRCDIR/pit.cpp -o $BUILDDIR/pit.o
 OBJS="$OBJS $BUILDDIR/pit.o"
 $CC $CFLAGS -c $SRCDIR/ps2.cpp -o $BUILDDIR/ps2.o
 OBJS="$OBJS $BUILDDIR/ps2.o"
+$CC $CFLAGS -c $SRCDIR/gdt.cpp -o $BUILDDIR/gdt.o
+OBJS="$OBJS $BUILDDIR/gdt.o"
+$CC $CFLAGS -c $SRCDIR/idt.cpp -o $BUILDDIR/idt.o
+OBJS="$OBJS $BUILDDIR/idt.o"
 
 LIBK_OBJS=""
 
