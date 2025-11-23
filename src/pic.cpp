@@ -28,6 +28,8 @@ namespace pic {
 		const uint8_t offset1 = 0x20;
 		const uint8_t offset2 = 0x28;
 
+		asm volatile("cli");
+
 		outb(PIC1_COMM, ICW1_INIT | ICW1_ICW4); // start init sequence
 		io_wait();
 		outb(PIC2_COMM, ICW1_INIT | ICW1_ICW4);

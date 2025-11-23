@@ -183,7 +183,14 @@ isr0x20_IRQ:
 	popal
 	iret
 
-isr_stub_noerr isr0x21_IRQ
+.global isr0x21_IRQ /* keyboard has data */
+isr0x21_IRQ:
+	pushal
+	cld
+	call keyboard_interrupt_handler
+	popal
+	iret
+
 isr_stub_noerr isr0x22_IRQ
 isr_stub_noerr isr0x23_IRQ
 isr_stub_noerr isr0x24_IRQ

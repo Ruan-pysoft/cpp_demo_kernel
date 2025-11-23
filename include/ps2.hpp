@@ -1,0 +1,209 @@
+#pragma once
+
+#include <stdint.h>
+
+namespace ps2 {
+
+void init();
+extern "C" void keyboard_interrupt_handler();
+
+enum Key {
+	KEY_0,
+	KEY_1,
+	KEY_2,
+	KEY_3,
+	KEY_4,
+	KEY_5,
+	KEY_6,
+	KEY_7,
+	KEY_8,
+	KEY_9,
+
+	KEY_A,
+	KEY_B,
+	KEY_C,
+	KEY_D,
+	KEY_E,
+	KEY_F,
+	KEY_G,
+	KEY_H,
+	KEY_I,
+	KEY_J,
+	KEY_K,
+	KEY_L,
+	KEY_M,
+	KEY_N,
+	KEY_O,
+	KEY_P,
+	KEY_Q,
+	KEY_R,
+	KEY_S,
+	KEY_T,
+	KEY_U,
+	KEY_V,
+	KEY_W,
+	KEY_X,
+	KEY_Y,
+	KEY_Z,
+
+	KEY_NUMPAD_0,
+	KEY_NUMPAD_1,
+	KEY_NUMPAD_2,
+	KEY_NUMPAD_3,
+	KEY_NUMPAD_4,
+	KEY_NUMPAD_5,
+	KEY_NUMPAD_6,
+	KEY_NUMPAD_7,
+	KEY_NUMPAD_8,
+	KEY_NUMPAD_9,
+
+	KEY_NUMPAD_PERIOD,
+	KEY_NUMPAD_PLUS,
+	KEY_NUMPAD_MINUS,
+	KEY_NUMPAD_TIMES,
+	KEY_NUMPAD_DIVIDE,
+	KEY_NUMPAD_ENTER,
+
+	KEY_GRAVE,
+	KEY_TILDE,
+	KEY_EXCLAIM,
+	KEY_AT,
+	KEY_HASH,
+	KEY_DOLLAR,
+	KEY_PERCENT,
+	KEY_CARAT,
+	KEY_AMP,
+	KEY_STAR,
+	KEY_LPAREN,
+	KEY_RPAREN,
+	KEY_MINUS,
+	KEY_UNDERSCORE,
+	KEY_EQUALS,
+	KEY_PLUS,
+	KEY_LBRACKET,
+	KEY_LBRACE,
+	KEY_RBRACKET,
+	KEY_RBRACE,
+	KEY_BACKSLASH,
+	KEY_BAR,
+	KEY_SEMICOLON,
+	KEY_COLON,
+	KEY_QUOTE,
+	KEY_DQUOTE,
+	KEY_COMMA,
+	KEY_LANGLE,
+	KEY_PERIOD,
+	KEY_RANGLE,
+	KEY_SLASH,
+	KEY_QUESTION,
+
+	KEY_SPACE,
+	KEY_ENTER,
+	KEY_TAB,
+	KEY_BACKSPACE,
+	KEY_DELETE,
+	KEY_ESCAPE,
+	KEY_APPS, // menu key
+
+	KEY_LEFT,
+	KEY_DOWN,
+	KEY_UP,
+	KEY_RIGHT,
+	KEY_HOME,
+	KEY_END,
+	KEY_PAGEDOWN,
+	KEY_PAGEUP,
+
+	KEY_F1,
+	KEY_F2,
+	KEY_F3,
+	KEY_F4,
+	KEY_F5,
+	KEY_F6,
+	KEY_F7,
+	KEY_F8,
+	KEY_F9,
+	KEY_F10,
+	KEY_F11,
+	KEY_F12,
+
+	KEY_LSHIFT,
+	KEY_RSHIFT,
+	KEY_LCTL,
+	KEY_RCTL,
+	KEY_LALT,
+	KEY_RALT,
+	KEY_LGUI, // windows key
+	KEY_RGUI,
+
+	KEY_CAPSLOCK,
+	KEY_NUMLOCK,
+	KEY_SCROLLLOCK,
+	KEY_INSERT,
+
+	KEY_MM_WWW_HOME,
+	KEY_MM_WWW_SEARCH,
+	KEY_MM_WWW_FAVOURITES,
+	KEY_MM_WWW_REFRESH,
+	KEY_MM_WWW_FORWARD,
+	KEY_MM_WWW_BACK,
+	KEY_MM_WWW_STOP,
+
+	KEY_MM_COMPUTER, // my computer key
+	KEY_MM_CALCULATOR,
+	KEY_MM_EMAIL,
+
+	KEY_MM_SELECT, // media select
+	KEY_MM_PREV_TRACK,
+	KEY_MM_NEXT_TRACK,
+	KEY_MM_VOLUME_DOWN,
+	KEY_MM_VOLUME_UP,
+	KEY_MM_MUTE,
+	KEY_MM_PLAYPAUSE,
+	KEY_MM_STOP,
+
+	KEY_PRINTSCR,
+	KEY_PAUSE,
+
+	KEY_POWER,
+	KEY_SLEEP,
+	KEY_WAKE,
+
+	KEY_MAX
+};
+
+extern bool key_state[KEY_MAX];
+extern char key_ascii_map[KEY_MAX];
+
+enum class EventType {
+	Press,
+	Bounce,
+	Release,
+};
+
+struct Event {
+	Key key;
+	EventType type;
+};
+
+template<typename T>
+class ByteRingBuffer {
+	T arr[256];
+	uint8_t head = 0;
+	uint8_t tail = 0;
+public:
+	ByteRingBuffer();
+	~ByteRingBuffer();
+
+	// TODO: move rather than copy?
+	void push(T item);
+	bool empty() const;
+	T pop();
+	const T &peek() const;
+	T &peek();
+};
+
+template class ByteRingBuffer<Event>;
+extern ByteRingBuffer<Event> events;
+
+};

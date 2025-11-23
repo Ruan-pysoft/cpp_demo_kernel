@@ -12,6 +12,9 @@
 #include "reload_segments.hpp"
 #include "pic.hpp"
 #include "pit.hpp"
+#include "ps2.hpp"
+#include "blit.hpp"
+#include "ioport.hpp"
 
 /* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
@@ -104,6 +107,8 @@ extern "C" void kernel_main(void);
 
 
 void kernel_early_main() {
+	__asm__ volatile("cli" ::: "memory");
+
 	/* Initialize terminal interface */
 	term_init();
 
@@ -202,13 +207,22 @@ void kernel_early_main() {
 	printf("idtr:     %p %p\n", uint32_t(idt_descriptor >> 32), uint32_t(idt_descriptor));
 
 	asm volatile("lidt %[idtr]" :: [idtr] "m" (idt_descriptor) : "memory");
-	asm volatile("sti");
 
 	/* initialise PIC (for eg. keyboard input & timers */
 	pic::init();
+	// disable IRQ interrupts
+	outb(0x21, 0xFF);
+	outb(0xA1, 0xFF);
 
 	/* initialise PIT */
 	pit::init_pit0();
+	pic::clear_mask(0);
+
+	/* initialise PS/2 controller */
+	ps2::init();
+	pic::clear_mask(1);
+
+	asm volatile("sti" ::: "memory");
 }
 
 class Foo {
@@ -331,6 +345,21 @@ void kernel_main(void) {
 	printf(":%d:", ds_var->geti());
 
 	printf("Milliseconds since startup: %u\n", pit::millis);
+
+	// copied from C code, TODO: clean this up
+	for (;;) {
+		while (!ps2::events.empty()) {
+			ps2::Event event = ps2::events.pop();
+			if (event.type != ps2::EventType::Press && event.type != ps2::EventType::Bounce) continue;
+
+			if (event.key == ps2::KEY_BACKSPACE) {
+				BLT_WRITE_CHR('B');
+				// TODO: implement backspace
+			} else if (ps2::key_ascii_map[event.key]) {
+				putchar(ps2::key_ascii_map[event.key]);
+			}
+		}
+	}
 }
 
 extern "C" void __cxa_pure_virtual() {

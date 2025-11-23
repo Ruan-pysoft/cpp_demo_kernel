@@ -10,7 +10,7 @@ KERNELNAME="myos"
 
 CC="$HOME/opt/cross/bin/i686-elf-g++"
 CFLAGS="-ffreestanding -O2 -g"
-CFLAGS="$CFLAGS -Wall -Wextra -pedantic"
+CFLAGS="$CFLAGS -Wall -Wextra"
 CFLAGS="$CFLAGS -fno-exceptions -fno-rtti"
 CFLAGS="$CFLAGS -I./include -isystem ./include/libk"
 
@@ -51,6 +51,8 @@ $CC $CFLAGS -c $SRCDIR/pic.cpp -o $BUILDDIR/pic.o
 OBJS="$OBJS $BUILDDIR/pic.o"
 $CC $CFLAGS -c $SRCDIR/pit.cpp -o $BUILDDIR/pit.o
 OBJS="$OBJS $BUILDDIR/pit.o"
+$CC $CFLAGS -c $SRCDIR/ps2.cpp -o $BUILDDIR/ps2.o
+OBJS="$OBJS $BUILDDIR/ps2.o"
 
 LIBK_OBJS=""
 
