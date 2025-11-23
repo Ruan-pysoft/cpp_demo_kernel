@@ -22,3 +22,14 @@ ISRs: `src/isr.s` + `include/isr.hpp`
 PIC initialisation + basic utilities: `src/pic.cpp` + `include/pic.hpp`
 
 PS2 keyboard interface + initialisation: `src/ps2.cpp` + `include/ps2.hpp`
+
+"Standard library" implementation: `src/libk/` + `include/libk/`
+
+C elements of the standard library is implemented such that each stdlib function has its own file under a folder corresponding to its header.
+
+Currently implemented:
+ - `cppsupport.hpp`: support for C++ (new, delete, atexit, etc)
+ - `stdio.h`: io functions (higher-level wrapper over the VGA driver)
+ - `stdlib.h`: memory allocation + freeing, as well as an abort function
+ - `string.h`: some string handling/memory manipulation functions
+ - `sys/cdefs.h`: tbh I have no idea
