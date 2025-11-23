@@ -1,7 +1,6 @@
 #include "pit.hpp"
 
 #include "ioport.hpp"
-#include "pic.hpp"
 
 static volatile uint32_t sleep_counter = 0;
 static bool course = false;
@@ -24,19 +23,29 @@ namespace pit {
 
 	void init_pit0() {
 		asm volatile("cli" ::: "memory");
-		configure(
+		// configure, but don't enable interrupts
+		outb(PIT_COMM,
 			PIT_COMM_CHAN0 | PIT_COMM_ACCESS_LOBYTE
 			| PIT_COMM_ACCESS_HIBYTE | PIT_COMM_MODE2
 		);
-		set_pit_count(1193);
-	}
-
-	void set_pit_count(uint16_t count) {
+		// set pit count, but don't enable interrupts
+		constexpr uint16_t count = 1193;
 		outb(PIT_CHAN0_DATA, count&0xFF);
 		outb(PIT_CHAN0_DATA, count>>8);
 	}
+
+	void set_pit_count(uint16_t count) {
+		__asm__ volatile("cli" ::: "memory");
+
+		outb(PIT_CHAN0_DATA, count&0xFF);
+		outb(PIT_CHAN0_DATA, count>>8);
+
+		__asm__ volatile("sti" ::: "memory");
+	}
 	void configure(uint8_t flags) {
+		__asm__ volatile("cli" ::: "memory");
 		outb(PIT_COMM, flags);
+		__asm__ volatile("sti" ::: "memory");
 	}
 
 	void sleep(uint32_t millis) {

@@ -1,6 +1,5 @@
 #include "ps2.hpp"
 
-#include <cstdint>
 #include <stdlib.h>
 
 #include "ioport.hpp"
