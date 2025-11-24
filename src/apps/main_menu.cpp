@@ -6,6 +6,7 @@
 #include "ps2.hpp"
 #include "vga.hpp"
 
+#include "apps/snake.hpp"
 #include "apps/queued_demo.hpp"
 #include "apps/callback_demo.hpp"
 #include "apps/ignore_demo.hpp"
@@ -18,6 +19,7 @@ constexpr struct MenuEntry {
 	const char *name;
 	void (*main)(void);
 } menu_entries[] = {
+	{ "Snake game", snake::main },
 	{ "EventLoop Demo: QueuedEventLoop", queued_demo::main },
 	{ "EventLoop Demo: CallbackEventLoop", callback_demo::main },
 	{ "EventLoop Demo: IgnoreEventLoop", ignore_demo::main },

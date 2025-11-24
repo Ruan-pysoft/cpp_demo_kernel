@@ -70,6 +70,8 @@ $CC $CFLAGS -c $SRCDIR/apps/ignore_demo.cpp -o $BUILDDIR/apps/ignore_demo.o
 OBJS="$OBJS $BUILDDIR/apps/ignore_demo.o"
 $CC $CFLAGS -c $SRCDIR/apps/main_menu.cpp -o $BUILDDIR/apps/main_menu.o
 OBJS="$OBJS $BUILDDIR/apps/main_menu.o"
+$CC $CFLAGS -c $SRCDIR/apps/snake.cpp -o $BUILDDIR/apps/snake.o
+OBJS="$OBJS $BUILDDIR/apps/snake.o"
 
 LIBK_OBJS=""
 
