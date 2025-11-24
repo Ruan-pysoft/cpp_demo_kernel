@@ -110,7 +110,7 @@ struct State {
 	Prng prng{}; // I assume the constructor gets called each tame State is created? idk, I'll figure it out later
 	Snake snake{};
 	Pos apple;
-	int score;
+	int score = 0;
 };
 
 void handle_keypress(State *state, ps2::Event event) {
@@ -271,6 +271,7 @@ void main() {
 		uint32_t frame_time = starting_speed;
 		frame_time -= (starting_speed - ending_speed) * state.score / by_score;
 		frame_time = state.score >= by_score ? ending_speed : frame_time;
+		frame_time = state.lost ? starting_speed : frame_time;
 		auto _ = event_loop.get_frame(frame_time/2);
 
 		bool sprint = ps2::key_state[ps2::KEY_LSHIFT] || ps2::key_state[ps2::KEY_RSHIFT]
