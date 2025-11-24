@@ -64,6 +64,10 @@ void kernel_early_main() {
 	asm volatile("sti" ::: "memory");
 }
 
+void dot(void*) {
+	BLT_WRITE_CHR('.');
+}
+
 /*
  * put the actual implementation outside of the extern "C" section, idk if I
  * can use c++ features inside the extern "C" section
@@ -99,6 +103,8 @@ void kernel_main(void) {
 				putchar(ps2::key_ascii_map[event.key]);
 			}
 		}
+
+		pit::sleep<true>(500, dot, NULL);
 	}
 }
 

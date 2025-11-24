@@ -29,14 +29,22 @@
 extern "C" void pit_handle_trigger(void);
 
 namespace pit {
-	volatile extern uint64_t millis;
+	volatile extern uint32_t millis;
 
 	void init_pit0(); // initialise channel 0 to cause an IRQ0 every millisecond
 
 	void set_pit_count(uint16_t count);
 	void configure(uint8_t flags);
 
+	// sleep functions with callback will trigger the callback every time an interrupt is triggered
 	void sleep(uint32_t millis);
+	template<bool only_on_kb_events = false> // yes, this template is cursed... it should probably be a default parameter instead. But this way the code for callbacks on keyboard events only and on all interrupts are actually different functions, eliminating a (very, very minor) inefficiency
+	// also, I only now realised I (seemingly?) cannot specify the name of the template parameter while supplying it, soo... probably should move it to a kw argument
+	void sleep(uint32_t millis, void(*cb)(void*), void *cb_arg, bool cb_on_final = true);
 	void sleep_until(uint32_t system_time);
+	template<bool only_on_kb_events = false>
+	void sleep_until(uint32_t system_time, void(*cb)(void*), void *cb_arg, bool cb_on_final = true);
 	void sleep_coarse(uint32_t millis);
+	template<bool only_on_kb_events = false>
+	void sleep_coarse(uint32_t millis, void(*cb)(void*), void *cb_arg, bool cb_on_final = true);
 }

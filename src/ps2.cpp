@@ -365,6 +365,7 @@ char key_ascii_map[KEY_MAX] = {
 
 ByteRingBuffer<Event> events;
 
+bool key_event_pending = false; // used to coordinate with the PIT's sleep functions
 static bool key_release_pending = false;
 static bool extended = false;
 static bool first_half_printscr = false;
@@ -379,6 +380,7 @@ static int pause_progress = 0;
 		}); \
 		key_state[KEY_##kb_key] = !key_release_pending; \
 		key_release_pending = false; \
+		key_event_pending = true; \
 	} break
 #define KEYS(byte, kb_key, kb_shiftkey) \
 	case byte: { \
@@ -390,6 +392,7 @@ static int pause_progress = 0;
 		}); \
 		key_state[key] = !key_release_pending; \
 		key_release_pending = false; \
+		key_event_pending = true; \
 	} break
 void handle_scancode(uint8_t code) {
 	if (code == 0xF0) {
@@ -417,6 +420,7 @@ void handle_scancode(uint8_t code) {
 			KEY_PAUSE,
 			EventType::Release,
 		});
+		key_event_pending = true;
 		pause_progress = 0;
 		return;
 	}
@@ -521,6 +525,7 @@ void handle_scancode(uint8_t code) {
 			});
 			key_state[KEY_PRINTSCR] = true;
 			key_release_pending = false;
+			key_event_pending = true;
 		} else if (key_release_pending && code == 0x12) {
 			events.push({
 				KEY_PRINTSCR,
@@ -528,6 +533,7 @@ void handle_scancode(uint8_t code) {
 			});
 			key_state[KEY_PRINTSCR] = false;
 			key_release_pending = false;
+			key_event_pending = true;
 		} else {
 			first_half_printscr = false;
 			handle_scancode(code);

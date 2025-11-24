@@ -2,6 +2,7 @@
 
 #include "ioport.hpp"
 
+namespace ps2 { extern bool key_event_pending; }
 static volatile uint32_t sleep_counter = 0;
 static bool course = false;
 
@@ -19,7 +20,7 @@ void pit_handle_trigger() {
 }
 
 namespace pit {
-	volatile uint64_t millis = 0;
+	volatile uint32_t millis = 0;
 
 	void init_pit0() {
 		asm volatile("cli" ::: "memory");
@@ -55,9 +56,49 @@ namespace pit {
 			asm volatile("hlt");
 		}
 	}
+	template<>
+	void sleep<false>(uint32_t millis, void(*cb)(void*), void *cb_arg, bool cb_on_final) {
+		sleep_counter = millis;
+
+		while (sleep_counter) {
+			asm volatile("hlt");
+			if (sleep_counter || cb_on_final) cb(cb_arg);
+		}
+	}
+	template<>
+	void sleep<true>(uint32_t millis, void(*cb)(void*), void *cb_arg, bool cb_on_final) {
+		sleep_counter = millis;
+
+		ps2::key_event_pending = false;
+		while (sleep_counter) {
+			asm volatile("hlt");
+			if ((sleep_counter || cb_on_final) && ps2::key_event_pending) {
+				cb(cb_arg);
+				ps2::key_event_pending = false;
+			}
+		}
+	}
 	void sleep_until(uint32_t system_time) {
 		while (pit::millis < system_time) {
 			asm volatile("hlt");
+		}
+	}
+	template<>
+	void sleep_until<false>(uint32_t system_time, void(*cb)(void*), void *cb_arg, bool cb_on_final) {
+		while (pit::millis < system_time) {
+			asm volatile("hlt");
+			if (pit::millis < system_time || cb_on_final) cb(cb_arg);
+		}
+	}
+	template<>
+	void sleep_until<true>(uint32_t system_time, void(*cb)(void*), void *cb_arg, bool cb_on_final) {
+		ps2::key_event_pending = false;
+		while (pit::millis < system_time) {
+			asm volatile("hlt");
+			if ((pit::millis < system_time || cb_on_final) && ps2::key_event_pending) {
+				cb(cb_arg);
+				ps2::key_event_pending = false;
+			}
 		}
 	}
 	void sleep_coarse(uint32_t millis) {
@@ -68,6 +109,40 @@ namespace pit {
 
 		while (sleep_counter) {
 			asm volatile("hlt");
+		}
+
+		course = false;
+		set_pit_count(1193);
+	}
+	template<>
+	void sleep_coarse<false>(uint32_t millis, void(*cb)(void*), void *cb_arg, bool cb_on_final) {
+		sleep_counter = millis;
+
+		set_pit_count(19091);
+		course = true;
+
+		while (sleep_counter) {
+			asm volatile("hlt");
+			if (sleep_counter || cb_on_final) cb(cb_arg);
+		}
+
+		course = false;
+		set_pit_count(1193);
+	}
+	template<>
+	void sleep_coarse<true>(uint32_t millis, void(*cb)(void*), void *cb_arg, bool cb_on_final) {
+		sleep_counter = millis;
+
+		set_pit_count(19091);
+		course = true;
+
+		ps2::key_event_pending = false;
+		while (sleep_counter) {
+			asm volatile("hlt");
+			if ((sleep_counter || cb_on_final) && ps2::key_event_pending) {
+				cb(cb_arg);
+				ps2::key_event_pending = false;
+			}
 		}
 
 		course = false;
