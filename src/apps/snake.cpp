@@ -92,7 +92,12 @@ public:
 		size_t i = num_segments;
 		while (i --> 0) {
 			term_goto(segments[i].x, segments[i].y);
+			term_setcolor(vga_entry_color(
+				vga_color::green,
+				vga_color::black
+			));
 			term_putchar('@');
+			term_resetcolor();
 		}
 	}
 };
@@ -145,7 +150,12 @@ void draw(State &state) {
 	cursor_disable();
 
 	term_goto(state.apple.x, state.apple.y);
+	term_setcolor(vga_entry_color(
+		vga_color::red,
+		vga_color::black
+	));
 	term_putchar('a');
+	term_resetcolor();
 
 	state.snake.draw();
 
@@ -207,7 +217,18 @@ void Snake::update(State &state) {
 		} break;
 	}
 
-	for (size_t i = 1; i < num_segments; ++i) {
+	if (next_head_pos == state.apple) {
+		state.apple = Pos::random_pos(state.prng);
+		if (num_segments < MAX_SNAKE_SIZE) {
+			const Pos tail = segments[num_segments-1];
+			segments[num_segments++] = tail;
+		}
+	}
+
+	for (size_t i = 1; i < num_segments - 1; ++i) {
+		// only check up to second-to-last segment,
+		// as all segments are about to move forward
+		// (so the head may move into the space which the tail currently occupies, but won't the next frame)
 		if (next_head_pos == segments[i]) {
 			state.lost = true;
 			return;
