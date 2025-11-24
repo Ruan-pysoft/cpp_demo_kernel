@@ -78,8 +78,8 @@ void term_putbyte(uint8_t byte) {
 void term_putchar(char c) {
 	if (c == '\n') {
 		term_col = 0;
-		if (move_cursor) cursor_goto(term_col, term_row);
 		if (++term_row == VGA_HEIGHT) term_scroll(2);
+		if (move_cursor) cursor_goto(term_col, term_row);
 	} else {
 		term_putbyte(uint8_t(c));
 	}
@@ -94,7 +94,7 @@ void term_backspace() {
 	} else --term_col;
 
 	term_putbyteat(' ', term_color, term_col, term_row);
-	cursor_goto(term_col, term_row);
+	if (move_cursor) cursor_goto(term_col, term_row);
 }
 void term_write_raw(const uint8_t *data, size_t size) {
 	const bool did_move_cursor = move_cursor;
