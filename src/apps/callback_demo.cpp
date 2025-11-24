@@ -32,7 +32,7 @@ void keyevent_callback(State *state, ps2::Event event) {
 void main() {
 	State state{};
 
-	CallbackEventLoop event_loop{
+	CallbackEventLoop event_loop {
 		(CallbackEventLoop::cb_t)keyevent_callback,
 		&state
 	};
@@ -40,8 +40,8 @@ void main() {
 	puts("Demo using callback-based event loop");
 	puts("Press Esc to quit");
 
-	while (!state.should_quit) { // write a period to the debug section every five seconds
-		auto _ = event_loop.get_frame(5'000);
+	while (!state.should_quit) { // write a period to the debug section every two seconds
+		auto _ = event_loop.get_frame(2'000);
 		BLT_WRITE_CHR('.');
 	}
 

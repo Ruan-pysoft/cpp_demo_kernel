@@ -66,6 +66,8 @@ $CC $CFLAGS -c $SRCDIR/apps/queued_demo.cpp -o $BUILDDIR/apps/queued_demo.o
 OBJS="$OBJS $BUILDDIR/apps/queued_demo.o"
 $CC $CFLAGS -c $SRCDIR/apps/callback_demo.cpp -o $BUILDDIR/apps/callback_demo.o
 OBJS="$OBJS $BUILDDIR/apps/callback_demo.o"
+$CC $CFLAGS -c $SRCDIR/apps/ignore_demo.cpp -o $BUILDDIR/apps/ignore_demo.o
+OBJS="$OBJS $BUILDDIR/apps/ignore_demo.o"
 
 LIBK_OBJS=""
 

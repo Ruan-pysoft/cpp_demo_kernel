@@ -18,6 +18,7 @@
 
 #include "apps/queued_demo.hpp"
 #include "apps/callback_demo.hpp"
+#include "apps/ignore_demo.hpp"
 
 /* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
@@ -96,6 +97,7 @@ void kernel_main(void) {
 
 	queued_demo::main();
 	callback_demo::main();
+	ignore_demo::main();
 }
 
 extern "C" void __cxa_pure_virtual() {
