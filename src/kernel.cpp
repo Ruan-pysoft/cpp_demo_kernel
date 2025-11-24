@@ -16,6 +16,8 @@
 #include "ioport.hpp"
 #include "gdt.hpp"
 
+#include "apps/queued_demo.hpp"
+
 /* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
 #error "You are not using a cross-compiler, you will most certainly run into trouble"
@@ -91,21 +93,7 @@ void kernel_main(void) {
 
 	printf("Milliseconds since startup: %u\n", pit::millis);
 
-	// copied from C code, TODO: clean this up
-	for (;;) {
-		while (!ps2::events.empty()) {
-			ps2::Event event = ps2::events.pop();
-			if (event.type != ps2::EventType::Press && event.type != ps2::EventType::Bounce) continue;
-
-			if (event.key == ps2::KEY_BACKSPACE) {
-				term_backspace();
-			} else if (ps2::key_ascii_map[event.key]) {
-				putchar(ps2::key_ascii_map[event.key]);
-			}
-		}
-
-		pit::sleep<true>(500, dot, NULL);
-	}
+	queued_demo::main();
 }
 
 extern "C" void __cxa_pure_virtual() {

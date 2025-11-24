@@ -60,6 +60,11 @@ OBJS="$OBJS $BUILDDIR/idt.o"
 $CC $CFLAGS -c $SRCDIR/eventloop.cpp -o $BUILDDIR/eventloop.o
 OBJS="$OBJS $BUILDDIR/eventloop.o"
 
+mkdir -p $BUILDDIR/apps
+
+$CC $CFLAGS -c $SRCDIR/apps/queued_demo.cpp -o $BUILDDIR/apps/queued_demo.o
+OBJS="$OBJS $BUILDDIR/apps/queued_demo.o"
+
 LIBK_OBJS=""
 
 # For adding objects (vim, replace stdio with relevant header):
