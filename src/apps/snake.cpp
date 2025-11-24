@@ -1,6 +1,7 @@
 #include "apps/snake.hpp"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "eventloop.hpp"
@@ -109,6 +110,7 @@ struct State {
 	Prng prng{}; // I assume the constructor gets called each tame State is created? idk, I'll figure it out later
 	Snake snake{};
 	Pos apple;
+	int score;
 };
 
 void handle_keypress(State *state, ps2::Event event) {
@@ -148,6 +150,9 @@ void handle_keypress(State *state, ps2::Event event) {
 void draw(State &state) {
 	term_clear();
 	cursor_disable();
+
+	term_goto(2, 2);
+	printf("Score: %d", state.score);
 
 	term_goto(state.apple.x, state.apple.y);
 	term_setcolor(vga_entry_color(
@@ -219,6 +224,7 @@ void Snake::update(State &state) {
 
 	if (next_head_pos == state.apple) {
 		state.apple = Pos::random_pos(state.prng);
+		++state.score;
 		if (num_segments < MAX_SNAKE_SIZE) {
 			const Pos tail = segments[num_segments-1];
 			segments[num_segments++] = tail;
@@ -255,8 +261,14 @@ void main() {
 
 	draw(state);
 
+	constexpr uint32_t starting_speed = 500; // 2 fps
+	constexpr uint32_t ending_speed = 100; // 10 fps
+	constexpr int by_score = 16;
+
 	while (!state.should_quit) {
-		auto _ = event_loop.get_frame(500); // 2 fps
+		uint32_t frame_time = starting_speed;
+		frame_time -= (starting_speed - ending_speed) * state.score / by_score;
+		auto _ = event_loop.get_frame(state.score >= by_score ? ending_speed : frame_time);
 
 		update(state);
 		draw(state);
