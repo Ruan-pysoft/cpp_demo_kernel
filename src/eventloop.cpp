@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "pit.hpp"
+#include "ps2.hpp"
 
 Frame EventLoop::get_frame(uint32_t frame_length_ms) {
 	return Frame(*this, frame_length_ms);
@@ -123,4 +124,6 @@ void CallbackEventLoop::poll() {
 void IgnoreEventLoop::frame_startup() { }
 void IgnoreEventLoop::frame_teardown() { }
 
-void IgnoreEventLoop::poll() { }
+void IgnoreEventLoop::poll() {
+	while (!ps2::events.empty()) ps2::events.pop();
+}
