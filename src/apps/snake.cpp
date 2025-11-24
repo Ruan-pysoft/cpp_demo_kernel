@@ -151,7 +151,7 @@ void draw(State &state) {
 	term_clear();
 	cursor_disable();
 
-	term_goto(2, 2);
+	term_goto(2, 1);
 	printf("Score: %d", state.score);
 
 	term_goto(state.apple.x, state.apple.y);
@@ -265,13 +265,24 @@ void main() {
 	constexpr uint32_t ending_speed = 100; // 10 fps
 	constexpr int by_score = 16;
 
+	bool skip_frame = true;
+
 	while (!state.should_quit) {
 		uint32_t frame_time = starting_speed;
 		frame_time -= (starting_speed - ending_speed) * state.score / by_score;
-		auto _ = event_loop.get_frame(state.score >= by_score ? ending_speed : frame_time);
+		frame_time = state.score >= by_score ? ending_speed : frame_time;
+		auto _ = event_loop.get_frame(frame_time/2);
 
-		update(state);
-		draw(state);
+		bool sprint = ps2::key_state[ps2::KEY_LSHIFT] || ps2::key_state[ps2::KEY_RSHIFT]
+			|| ps2::key_state[ps2::KEY_LCTL] || ps2::key_state[ps2::KEY_RCTL]
+			|| ps2::key_state[ps2::KEY_SPACE];
+
+		if (!skip_frame || state.lost || sprint) {
+			update(state);
+			draw(state);
+		}
+
+		skip_frame = !skip_frame;
 	}
 }
 
