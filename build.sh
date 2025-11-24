@@ -57,6 +57,8 @@ $CC $CFLAGS -c $SRCDIR/gdt.cpp -o $BUILDDIR/gdt.o
 OBJS="$OBJS $BUILDDIR/gdt.o"
 $CC $CFLAGS -c $SRCDIR/idt.cpp -o $BUILDDIR/idt.o
 OBJS="$OBJS $BUILDDIR/idt.o"
+$CC $CFLAGS -c $SRCDIR/eventloop.cpp -o $BUILDDIR/eventloop.o
+OBJS="$OBJS $BUILDDIR/eventloop.o"
 
 LIBK_OBJS=""
 
