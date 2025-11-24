@@ -16,9 +16,7 @@
 #include "ioport.hpp"
 #include "gdt.hpp"
 
-#include "apps/queued_demo.hpp"
-#include "apps/callback_demo.hpp"
-#include "apps/ignore_demo.hpp"
+#include "apps/main_menu.hpp"
 
 /* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
@@ -95,9 +93,7 @@ void kernel_main(void) {
 
 	printf("Milliseconds since startup: %u\n", pit::millis);
 
-	queued_demo::main();
-	callback_demo::main();
-	ignore_demo::main();
+	main_menu::main();
 }
 
 extern "C" void __cxa_pure_virtual() {

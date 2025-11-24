@@ -44,6 +44,8 @@ constexpr static inline vga_entry_t vga_entry(uint8_t b, vga_entry_color_t color
 }
 
 void term_init();
+void term_clear();
+void term_goto(size_t x, size_t y);
 void term_setcolor(vga_entry_color_t color);
 vga_entry_color_t term_getcolor();
 void term_resetcolor();
@@ -59,7 +61,7 @@ void term_write(const char *data, size_t size);
 void term_writestring(const char *str);
 
 void cursor_enable(uint8_t cursor_start, uint8_t cursor_end);
-void cursor_disable(uint8_t cursor_start, uint8_t cursor_end);
+void cursor_disable();
 void cursor_goto(size_t x, size_t y);
 uint16_t cursor_getpos();
 size_t cursor_getx();

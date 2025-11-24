@@ -18,16 +18,26 @@ void term_init() {
 
 	term_resetcolor();
 
+	term_clear();
+
+	move_cursor = true;
+	cursor_enable(8, 15);
+	cursor_goto(0, 0);
+}
+void term_clear() {
 	for (size_t y = 0; y < VGA_HEIGHT; ++y) {
 		for (size_t x = 0; x < VGA_WIDTH; ++x) {
 			const size_t index = y * VGA_WIDTH + x;
 			term_buffer[index] = vga_entry(' ', term_color);
 		}
 	}
-
-	move_cursor = true;
-	cursor_enable(8, 15);
-	cursor_goto(0, 0);
+}
+void term_goto(size_t x, size_t y) {
+	term_col = x;
+	term_row = y;
+	if (term_col > VGA_WIDTH) term_col = VGA_WIDTH-1;
+	if (term_row > VGA_HEIGHT) term_row = VGA_HEIGHT-1;
+	if (move_cursor) cursor_goto(term_col, term_row);
 }
 void term_setcolor(vga_entry_color_t color) {
 	term_color = color;
