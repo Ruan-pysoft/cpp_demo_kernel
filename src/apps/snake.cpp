@@ -105,6 +105,7 @@ public:
 
 struct State {
 	bool should_quit = false;
+	bool restart = false;
 	bool lost = false;
 	bool blink_state = false;
 	Prng prng{}; // I assume the constructor gets called each tame State is created? idk, I'll figure it out later
@@ -114,14 +115,19 @@ struct State {
 };
 
 void handle_keypress(State *state, ps2::Event event) {
-	if (event.type == ps2::EventType::Press && (
-		event.key == ps2::KEY_Q || event.key == ps2::KEY_ESCAPE
-	)) {
-		state->should_quit = true;
-	}
-
 	if (event.type == ps2::EventType::Press) {
 		switch (event.key) {
+			case ps2::KEY_Q:
+			case ps2::KEY_ESCAPE: {
+				state->should_quit = true;
+			} break;
+			case ps2::KEY_R:
+			case ps2::KEY_ENTER: {
+				// only allow the player to restart from the game over screen;
+				// if they want to restart in play, they just have to run into themselves
+				if (state->lost) state->restart = true;
+			} break;
+
 			case ps2::KEY_LEFT:
 			case ps2::KEY_A:
 			case ps2::KEY_H: {
@@ -251,39 +257,44 @@ void Snake::update(State &state) {
 }
 
 void main() {
-	State state{};
-	state.apple = Pos::random_pos(state.prng);
+	bool should_quit = false;
+	while (!should_quit) {
+		State state{};
+		state.apple = Pos::random_pos(state.prng);
 
-	CallbackEventLoop event_loop{
-		(CallbackEventLoop::cb_t)handle_keypress,
-		&state,
-	};
+		CallbackEventLoop event_loop{
+			(CallbackEventLoop::cb_t)handle_keypress,
+			&state,
+		};
 
-	draw(state);
+		draw(state);
 
-	constexpr uint32_t starting_speed = 500; // 2 fps
-	constexpr uint32_t ending_speed = 100; // 10 fps
-	constexpr int by_score = 16;
+		constexpr uint32_t starting_speed = 500; // 2 fps
+		constexpr uint32_t ending_speed = 100; // 10 fps
+		constexpr int by_score = 16;
 
-	bool skip_frame = true;
+		bool skip_frame = true;
 
-	while (!state.should_quit) {
-		uint32_t frame_time = starting_speed;
-		frame_time -= (starting_speed - ending_speed) * state.score / by_score;
-		frame_time = state.score >= by_score ? ending_speed : frame_time;
-		frame_time = state.lost ? starting_speed : frame_time;
-		auto _ = event_loop.get_frame(frame_time/2);
+		while (!state.should_quit && !state.restart) {
+			uint32_t frame_time = starting_speed;
+			frame_time -= (starting_speed - ending_speed) * state.score / by_score;
+			frame_time = state.score >= by_score ? ending_speed : frame_time;
+			frame_time = state.lost ? starting_speed : frame_time;
+			auto _ = event_loop.get_frame(frame_time/2);
 
-		bool sprint = ps2::key_state[ps2::KEY_LSHIFT] || ps2::key_state[ps2::KEY_RSHIFT]
-			|| ps2::key_state[ps2::KEY_LCTL] || ps2::key_state[ps2::KEY_RCTL]
-			|| ps2::key_state[ps2::KEY_SPACE];
+			bool sprint = ps2::key_state[ps2::KEY_LSHIFT] || ps2::key_state[ps2::KEY_RSHIFT]
+				|| ps2::key_state[ps2::KEY_LCTL] || ps2::key_state[ps2::KEY_RCTL]
+				|| ps2::key_state[ps2::KEY_SPACE];
 
-		if (!skip_frame || state.lost || sprint) {
-			update(state);
-			draw(state);
+			if (!skip_frame || state.lost || sprint) {
+				update(state);
+				draw(state);
+			}
+
+			skip_frame = !skip_frame;
 		}
 
-		skip_frame = !skip_frame;
+		should_quit = state.should_quit;
 	}
 }
 
