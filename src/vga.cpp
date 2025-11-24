@@ -84,6 +84,18 @@ void term_putchar(char c) {
 		term_putbyte(uint8_t(c));
 	}
 }
+void term_backspace() {
+	if (term_col == 0) {
+		if (term_row == 0) return; // no back buffer, so can't go further back
+		else {
+			--term_row;
+			term_col = VGA_WIDTH - 1;
+		}
+	} else --term_col;
+
+	term_putbyteat(' ', term_color, term_col, term_row);
+	cursor_goto(term_col, term_row);
+}
 void term_write_raw(const uint8_t *data, size_t size) {
 	const bool did_move_cursor = move_cursor;
 	move_cursor = false;

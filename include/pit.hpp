@@ -29,7 +29,7 @@
 extern "C" void pit_handle_trigger(void);
 
 namespace pit {
-	volatile extern uint32_t millis;
+	volatile extern uint64_t millis;
 
 	void init_pit0(); // initialise channel 0 to cause an IRQ0 every millisecond
 

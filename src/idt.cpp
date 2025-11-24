@@ -49,8 +49,6 @@ static uint64_t idt_descriptor = 0;
 };
 
 void init() {
-	printf("isr0x00_DE addr: %p\n", isr0x00_DE);
-
 	#define IDT_INT(addr) create_idt_entry(uint32_t(addr), gdt::kcode_segment, INTERRUPT_GATE_FLAGS)
 	#define IDT_TRP(addr) create_idt_entry(uint32_t(addr), gdt::kcode_segment, TRAP_GATE_FLAGS)
 	#define IDT_FLT(addr) IDT_TRP(addr)
@@ -115,10 +113,6 @@ void init() {
 	idt_descriptor = idt_addr;
 	idt_descriptor <<= 16;
 	idt_descriptor |= idt_size;
-
-	printf("idt_size: %p\n", uint32_t(idt_size));
-	printf("idt_addr: %p\n", idt_addr);
-	printf("idtr:     %p %p\n", uint32_t(idt_descriptor >> 32), uint32_t(idt_descriptor));
 }
 void load() {
 	asm volatile("lidt %[idtr]" :: [idtr] "m" (idt_descriptor) : "memory");

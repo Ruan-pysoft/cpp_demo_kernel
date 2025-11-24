@@ -19,7 +19,7 @@ void pit_handle_trigger() {
 }
 
 namespace pit {
-	volatile uint32_t millis = 0;
+	volatile uint64_t millis = 0;
 
 	void init_pit0() {
 		asm volatile("cli" ::: "memory");

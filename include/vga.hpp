@@ -53,6 +53,7 @@ void term_scroll(size_t lines);
 void term_advance();
 void term_putbyte(uint8_t byte);
 void term_putchar(char c);
+void term_backspace();
 void term_write_raw(const uint8_t *data, size_t size);
 void term_write(const char *data, size_t size);
 void term_writestring(const char *str);
