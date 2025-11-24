@@ -64,6 +64,8 @@ mkdir -p $BUILDDIR/apps
 
 $CC $CFLAGS -c $SRCDIR/apps/queued_demo.cpp -o $BUILDDIR/apps/queued_demo.o
 OBJS="$OBJS $BUILDDIR/apps/queued_demo.o"
+$CC $CFLAGS -c $SRCDIR/apps/callback_demo.cpp -o $BUILDDIR/apps/callback_demo.o
+OBJS="$OBJS $BUILDDIR/apps/callback_demo.o"
 
 LIBK_OBJS=""
 

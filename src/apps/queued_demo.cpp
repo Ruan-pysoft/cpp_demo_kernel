@@ -13,6 +13,7 @@ void main() {
 
 	bool should_quit = false;
 
+	puts("Demo using queued event loop");
 	puts("Press Esc to quit");
 
 	while (!should_quit) {
