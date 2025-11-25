@@ -113,6 +113,9 @@ LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-reallocarray.o"
 $CC $CFLAGS -c $SRCDIR/libk/stdlib/realloc.cpp -o $BUILDDIR/libk-stdlib-realloc.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-stdlib-realloc.o"
 
+$CC $CFLAGS -c $SRCDIR/libk/assert/_assert_fail.cpp -o $BUILDDIR/libk-assert-_assert_fail.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-assert-_assert_fail.o"
+
 $CC $CFLAGS -c $SRCDIR/libk/cppsupport.cpp -o $BUILDDIR/libk-cppsupport.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-cppsupport.o"
 

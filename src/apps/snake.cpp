@@ -1,5 +1,6 @@
 #include "apps/snake.hpp"
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -103,6 +104,7 @@ class Snake {
 public:
 	Snake(Pos start = {STAGE_WIDTH/2, STAGE_HEIGHT/2}, size_t initial_segments = 5, Direction initial_dir = Direction::Left)
 	: num_segments(initial_segments), facing(initial_dir) {
+		assert(num_segments != 0);
 		for (size_t i = 0; i < num_segments; ++i) {
 			segments[i] = start;
 		}
@@ -289,7 +291,7 @@ void main() {
 		State state{};
 		state.apple = Pos::random_pos(state.prng);
 
-		CallbackEventLoop event_loop{
+		CallbackEventLoop event_loop {
 			(CallbackEventLoop::cb_t)handle_keypress,
 			&state,
 		};
