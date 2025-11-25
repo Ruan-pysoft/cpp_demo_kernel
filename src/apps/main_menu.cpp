@@ -7,6 +7,7 @@
 #include "vga.hpp"
 
 #include "apps/snake.hpp"
+#include "apps/character_map.hpp"
 #include "apps/queued_demo.hpp"
 #include "apps/callback_demo.hpp"
 #include "apps/ignore_demo.hpp"
@@ -22,6 +23,7 @@ constexpr struct MenuEntry {
 	void (*main)(void);
 } menu_entries[] = {
 	{ "Snake game", snake::main },
+	{ "Display character map", character_map::main },
 	{ "EventLoop Demo: QueuedEventLoop", queued_demo::main },
 	{ "EventLoop Demo: CallbackEventLoop", callback_demo::main },
 	{ "EventLoop Demo: IgnoreEventLoop", ignore_demo::main },

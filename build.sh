@@ -72,6 +72,8 @@ $CC $CFLAGS -c $SRCDIR/apps/main_menu.cpp -o $BUILDDIR/apps/main_menu.o
 OBJS="$OBJS $BUILDDIR/apps/main_menu.o"
 $CC $CFLAGS -c $SRCDIR/apps/snake.cpp -o $BUILDDIR/apps/snake.o
 OBJS="$OBJS $BUILDDIR/apps/snake.o"
+$CC $CFLAGS -c $SRCDIR/apps/character_map.cpp -o $BUILDDIR/apps/character_map.o
+OBJS="$OBJS $BUILDDIR/apps/character_map.o"
 
 LIBK_OBJS=""
 
