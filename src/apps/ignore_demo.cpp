@@ -1,9 +1,9 @@
 #include "apps/ignore_demo.hpp"
 
+#include <sdk/eventloop.hpp>
 #include <stdio.h>
 #include <string.h>
 
-#include "eventloop.hpp"
 #include "ps2.hpp"
 #include "vga.hpp"
 
@@ -20,7 +20,7 @@ void atomic_read_state(bool into[ps2::KEY_MAX]) {
 }
 
 void main() {
-	IgnoreEventLoop event_loop{};
+	sdk::IgnoreEventLoop event_loop{};
 
 	bool should_quit = false;
 	bool back_state[ps2::KEY_MAX];

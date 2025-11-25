@@ -1,15 +1,15 @@
 #include "apps/queued_demo.hpp"
 
+#include <sdk/eventloop.hpp>
 #include <stdio.h>
 
-#include "eventloop.hpp"
 #include "ps2.hpp"
 #include "vga.hpp"
 
 namespace queued_demo {
 
 void main() {
-	QueuedEventLoop event_loop{};
+	sdk::QueuedEventLoop event_loop{};
 
 	bool should_quit = false;
 

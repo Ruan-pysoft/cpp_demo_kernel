@@ -1,11 +1,11 @@
 #include "apps/snake.hpp"
 
 #include <assert.h>
+#include <sdk/eventloop.hpp>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "eventloop.hpp"
 #include "pit.hpp"
 #include "ps2.hpp"
 #include "vga.hpp"
@@ -291,8 +291,8 @@ void main() {
 		State state{};
 		state.apple = Pos::random_pos(state.prng);
 
-		CallbackEventLoop event_loop {
-			(CallbackEventLoop::cb_t)handle_keypress,
+		sdk::CallbackEventLoop event_loop {
+			(sdk::CallbackEventLoop::cb_t)handle_keypress,
 			&state,
 		};
 

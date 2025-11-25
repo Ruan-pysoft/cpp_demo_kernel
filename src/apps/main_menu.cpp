@@ -11,6 +11,7 @@
 #include "apps/queued_demo.hpp"
 #include "apps/callback_demo.hpp"
 #include "apps/ignore_demo.hpp"
+#include "apps/flappy.hpp"
 
 using namespace term;
 

@@ -57,8 +57,6 @@ $CC $CFLAGS -c $SRCDIR/gdt.cpp -o $BUILDDIR/gdt.o
 OBJS="$OBJS $BUILDDIR/gdt.o"
 $CC $CFLAGS -c $SRCDIR/idt.cpp -o $BUILDDIR/idt.o
 OBJS="$OBJS $BUILDDIR/idt.o"
-$CC $CFLAGS -c $SRCDIR/eventloop.cpp -o $BUILDDIR/eventloop.o
-OBJS="$OBJS $BUILDDIR/eventloop.o"
 
 mkdir -p $BUILDDIR/apps
 
@@ -74,6 +72,11 @@ $CC $CFLAGS -c $SRCDIR/apps/snake.cpp -o $BUILDDIR/apps/snake.o
 OBJS="$OBJS $BUILDDIR/apps/snake.o"
 $CC $CFLAGS -c $SRCDIR/apps/character_map.cpp -o $BUILDDIR/apps/character_map.o
 OBJS="$OBJS $BUILDDIR/apps/character_map.o"
+
+mkdir -p $BUILDDIR/sdk
+
+$CC $CFLAGS -c $SRCDIR/libk/sdk/eventloop.cpp -o $BUILDDIR/sdk/eventloop.o
+OBJS="$OBJS $BUILDDIR/sdk/eventloop.o"
 
 LIBK_OBJS=""
 

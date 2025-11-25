@@ -5,6 +5,8 @@
 
 #include "ps2.hpp"
 
+namespace sdk {
+
 // class used by applications to handle keyboard state and event loop
 class Frame;
 class EventLoop {
@@ -111,3 +113,5 @@ public:
 
 	virtual void poll() override;
 };
+
+}

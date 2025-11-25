@@ -1,9 +1,9 @@
 #include "apps/callback_demo.hpp"
 
+#include <sdk/eventloop.hpp>
 #include <stdio.h>
 
 #include "blit.hpp"
-#include "eventloop.hpp"
 #include "ps2.hpp"
 #include "vga.hpp"
 
@@ -32,8 +32,8 @@ void keyevent_callback(State *state, ps2::Event event) {
 void main() {
 	State state{};
 
-	CallbackEventLoop event_loop {
-		(CallbackEventLoop::cb_t)keyevent_callback,
+	sdk::CallbackEventLoop event_loop {
+		(sdk::CallbackEventLoop::cb_t)keyevent_callback,
 		&state
 	};
 

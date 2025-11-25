@@ -1,10 +1,12 @@
-#include "eventloop.hpp"
+#include <sdk/eventloop.hpp>
 
 #include <assert.h>
 #include <stdlib.h>
 
 #include "pit.hpp"
 #include "ps2.hpp"
+
+namespace sdk {
 
 Frame EventLoop::get_frame(uint32_t frame_length_ms) {
 	return Frame(*this, frame_length_ms);
@@ -127,4 +129,6 @@ void IgnoreEventLoop::frame_teardown() { }
 
 void IgnoreEventLoop::poll() {
 	while (!ps2::events.empty()) ps2::events.pop();
+}
+
 }
