@@ -14,5 +14,6 @@ void _assert_fail(const char *assertion, const char *file, int line, const char 
 	BLT_WRITE_STR(": Assertion `", 13);
 	BLT_WRITE_STR(assertion, strlen(assertion));
 	BLT_WRITE_STR("` failed.", 11);
+	BLT_NEWLINE();
 	abort();
 }

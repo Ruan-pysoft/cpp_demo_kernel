@@ -1,5 +1,6 @@
 #include <stdlib.h>
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -26,10 +27,7 @@ void *realloc(void *p, size_t size) {
 	--header;
 
 	// verify the header has 1KiB alignment
-	if (size_t(header) & 1023) {
-		puts("kernel: panic: passed a pointer to free not from malloc");
-		abort();
-	}
+	assert((size_t(header)&1023) == 0 && "passed a pointer to free that isn't from malloc");
 
 	const size_t begin = get_idx(header);
 	const size_t curr_len = header->s.num_blocks;
@@ -45,10 +43,7 @@ void *realloc(void *p, size_t size) {
 		// mark the memory as free
 		for (size_t i = req_len; i < curr_len; ++i) {
 			// verify that the memory hasn't already been freed
-			if (!get_used(begin+i)) {
-				puts("kernel: panic: double free detected!");
-				abort();
-			}
+			assert(get_used(begin+i) && "double free detected!");
 
 			set_free(begin+i);
 		}

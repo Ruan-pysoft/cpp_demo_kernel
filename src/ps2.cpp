@@ -1,5 +1,6 @@
 #include "ps2.hpp"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "ioport.hpp"
@@ -147,12 +148,7 @@ void init() {
 
 	// perform controller self test
 	send_commb(CMD_CONTROLLER_TEST);
-	if (read_resp() != 0x55) {
-		// self test failed!
-		BLT_WRITE_STR("PS/2 controller failed self-test", 32);
-		BLT_NEWLINE();
-		abort();
-	}
+	assert(read_resp() == 0x55 && "PS/2 controller failed self-test");
 	send_commb2(CMD_WRITE_CONFIG, cfg);
 
 	// determine if there are two channels
@@ -174,12 +170,7 @@ void init() {
 	port1_works = read_resp() == 0;
 	send_commb(CMD_PORT2_TEST);
 	port2_works = read_resp() == 0;
-	if (!port1_works && !port2_works) {
-		// no PS/2 ports working!
-		BLT_WRITE_STR("No working PS/2 ports available!", 32);
-		BLT_NEWLINE();
-		abort();
-	}
+	assert((port1_works || port2_works) && "No working PS/2 port available");
 
 	// enable devices
 	if (port1_works) {
@@ -245,11 +236,7 @@ void init() {
 		}
 	}
 
-	if (!port1_iskb) {
-		BLT_WRITE_STR("Unexpected PS/2 setup (port1 is not keyboard)!", 46);
-		BLT_NEWLINE();
-		abort();
-	}
+	assert(port1_iskb && "Unexpected PS/2 setup (port1 is not keyboard)!");
 
 	// enable keyboard scancode sending
 	sched_comm(0xF4);
@@ -649,29 +636,17 @@ bool ByteRingBuffer<T>::empty() const {
 }
 template<typename T>
 T ByteRingBuffer<T>::pop() {
-	if (empty()) {
-		BLT_WRITE_STR("Tried to pop from empty ring buffer!", 36);
-		BLT_NEWLINE();
-		abort();
-	}
+	assert(!empty() && "Tried to pop from empty ring buffer!");
 	return arr[head++];
 }
 template<typename T>
 const T &ByteRingBuffer<T>::peek() const {
-	if (empty()) {
-		BLT_WRITE_STR("Tried to peek into empty ring buffer!", 37);
-		BLT_NEWLINE();
-		abort();
-	}
+	assert(!empty() && "Tried to peek into empty ring buffer!");
 	return arr[head];
 }
 template<typename T>
 T &ByteRingBuffer<T>::peek() {
-	if (empty()) {
-		BLT_WRITE_STR("Tried to peek into empty ring buffer!", 37);
-		BLT_NEWLINE();
-		abort();
-	}
+	assert(!empty() && "Tried to peek into empty ring buffer!");
 	return arr[head];
 }
 

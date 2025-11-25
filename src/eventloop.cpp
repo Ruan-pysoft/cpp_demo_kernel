@@ -1,5 +1,6 @@
 #include "eventloop.hpp"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "pit.hpp"
@@ -47,7 +48,7 @@ bool EventQueue::empty() const {
 	return head == tail;
 }
 ps2::Event EventQueue::pop() {
-	if (empty()) abort();
+	assert(!empty());
 	return event_buf[head++];
 }
 size_t EventQueue::get_dropped() const {
