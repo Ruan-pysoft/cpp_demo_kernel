@@ -134,11 +134,90 @@ struct State {
 	bool lost = false;
 	bool blink_state = false;
 	Mode mode = Mode::Game;
+	bool help_screen_drawn = false;
 	sdk::random::Xorshift32 prng{}; // I assume the constructor gets called each tame State is created? idk, I'll figure it out later
 	Snake snake{};
 	Pos apple;
 	int score = 0;
 };
+
+namespace help_menu {
+
+void tick(State &state) {
+	while (!ps2::events.empty()) {
+		const auto event = ps2::events.pop();
+
+		if (event.type != ps2::EventType::Press) continue;
+
+		using namespace ps2;
+		switch (event.key) {
+			case KEY_QUESTION:
+			case KEY_R:
+			case KEY_ESCAPE:
+			case KEY_Q:
+			case KEY_ENTER:
+			case KEY_SPACE: {
+				state.mode = Mode::Game;
+			} break;
+
+			default: break;
+		}
+	}
+}
+
+void draw() {
+	auto _ = term::Backbuffer();
+
+	term::clear();
+
+	const char *title = "HELP";
+	const size_t title_len = strlen(title);
+	const size_t title_offset = (vga::WIDTH - title_len)/2;
+	term::setcolor(vga::entry_color(
+		vga::Color::DarkGrey,
+		vga::Color::White
+	));
+	term::go_to(title_offset, 1);
+	term::writestring(title);
+	term::resetcolor();
+
+	const char *help_text[] = {
+		"The object of the game is to eat as many cherries as possible, while",
+		"avoiding running into your own tail.",
+		"As you eat more and grow longer, it becomes harder to avoid running into",
+		"yourself.",
+		"",
+		"Move with the arrow keys: \xff\x18\x19\x1b\x1a\xff",
+		"Or with                   \xffWSAD\xff",
+		"Or                        \xffKJHL\xff",
+		"Sprint (go faster) by holding \xffSHIFT\xff or \xff""CONTROL\xff or \xffSPACE\xff.",
+		"",
+		"You can restart from the \xffGAME OVER\xff screen by pressing \xffR\xff or \xff""ENTER\xff.",
+		"You can exit at any time by pressing \xffQ\xff or \xff""ESCAPE\xff.",
+	};
+
+	bool highlight = false;
+	for (size_t i = 0; i < sizeof(help_text)/sizeof(*help_text); ++i) {
+		term::go_to(2, 3 + i);
+		for (size_t j = 0; help_text[i][j] != 0; ++j) {
+			if (help_text[i][j] == '\xff' && !highlight) {
+				highlight = true;
+				term::setcolor(vga::entry_color(
+					vga::Color::DarkGrey,
+					vga::Color::White
+				));
+			} else if (help_text[i][j] == '\xff') {
+				highlight = false;
+				term::resetcolor();
+			} else {
+				term::putchar(help_text[i][j]);
+			}
+		}
+	}
+	term::resetcolor();
+}
+
+}
 
 void handle_keypress(State &state, ps2::Event event) {
 	if (event.type == ps2::EventType::Press) {
@@ -152,6 +231,10 @@ void handle_keypress(State &state, ps2::Event event) {
 				// only allow the player to restart from the game over screen;
 				// if they want to restart in play, they just have to run into themselves
 				if (state.lost) state.restart = true;
+			} break;
+
+			case ps2::KEY_QUESTION: {
+				state.mode = Mode::HelpScreen;
 			} break;
 
 			case ps2::KEY_LEFT:
@@ -297,22 +380,35 @@ void main() {
 		bool skip_frame = true;
 
 		while (!state.should_quit && !state.restart) {
-			uint32_t frame_time = starting_speed;
-			frame_time -= (starting_speed - ending_speed) * state.score / by_score;
-			frame_time = state.score >= by_score ? ending_speed : frame_time;
-			frame_time = state.lost ? starting_speed : frame_time;
-			auto _ = event_loop.get_frame(frame_time/2);
+			if (state.mode == Mode::Game) {
+				uint32_t frame_time = starting_speed;
+				frame_time -= (starting_speed - ending_speed) * state.score / by_score;
+				frame_time = state.score >= by_score ? ending_speed : frame_time;
+				frame_time = state.lost ? starting_speed : frame_time;
+				auto _ = event_loop.get_frame(frame_time/2);
 
-			bool sprint = ps2::key_state[ps2::KEY_LSHIFT] || ps2::key_state[ps2::KEY_RSHIFT]
-				|| ps2::key_state[ps2::KEY_LCTL] || ps2::key_state[ps2::KEY_RCTL]
-				|| ps2::key_state[ps2::KEY_SPACE];
+				bool sprint = ps2::key_state[ps2::KEY_LSHIFT] || ps2::key_state[ps2::KEY_RSHIFT]
+					|| ps2::key_state[ps2::KEY_LCTL] || ps2::key_state[ps2::KEY_RCTL]
+					|| ps2::key_state[ps2::KEY_SPACE];
 
-			if (!skip_frame || state.lost || sprint) {
-				update(state);
-				draw(state);
+				if (!skip_frame || state.lost || sprint) {
+					update(state);
+					draw(state);
+				} else if (state.help_screen_drawn) {
+					draw(state);
+				}
+				state.help_screen_drawn = false;
+
+				skip_frame = !skip_frame;
+			} else {
+				help_menu::tick(state);
+				if (!state.help_screen_drawn) {
+					help_menu::draw();
+					state.help_screen_drawn = true;
+				}
+
+				__asm__ volatile("hlt" ::: "memory");
 			}
-
-			skip_frame = !skip_frame;
 		}
 
 		should_quit = state.should_quit;
