@@ -2,11 +2,11 @@
 
 #include <assert.h>
 #include <sdk/eventloop.hpp>
+#include <sdk/random.hpp>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "pit.hpp"
 #include "ps2.hpp"
 #include "vga.hpp"
 
@@ -22,27 +22,6 @@ enum class Direction {
 	Down,
 	Up,
 	Right,
-};
-
-class Prng {
-	// see https://en.wikipedia.org/wiki/Xorshift
-	uint32_t state;
-public:
-	Prng() : Prng(pit::millis) {}
-	// XOR'ing seed with 0b10101010.... to get a good distribution of active bits initially
-	Prng(uint32_t seed) : state(seed ^ 0xAA'AA'AA'AA) {
-		if (seed == 0) {
-			// seed shouldn't be zero!
-			seed = pit::millis; // assume that pit::millis is never zero
-		}
-	}
-
-	uint32_t next() {
-		state ^= state << 13;
-		state ^= state >> 17;
-		state ^= state << 5;
-		return state;
-	}
 };
 
 struct Pos {
@@ -82,7 +61,7 @@ struct Pos {
 		return res;
 	}
 
-	static Pos random_pos(Prng &prng) {
+	static Pos random_pos(sdk::random::Prng<uint32_t> &prng) {
 		const uint32_t rand = prng.next();
 		// technically biased towards lower numbers, but who cares?
 		return {
@@ -149,7 +128,7 @@ struct State {
 	bool restart = false;
 	bool lost = false;
 	bool blink_state = false;
-	Prng prng{}; // I assume the constructor gets called each tame State is created? idk, I'll figure it out later
+	sdk::random::Xorshift32 prng{}; // I assume the constructor gets called each tame State is created? idk, I'll figure it out later
 	Snake snake{};
 	Pos apple;
 	int score = 0;

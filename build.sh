@@ -77,6 +77,8 @@ mkdir -p $BUILDDIR/sdk
 
 $CC $CFLAGS -c $SRCDIR/libk/sdk/eventloop.cpp -o $BUILDDIR/sdk/eventloop.o
 OBJS="$OBJS $BUILDDIR/sdk/eventloop.o"
+$CC $CFLAGS -c $SRCDIR/libk/sdk/random.cpp -o $BUILDDIR/sdk/random.o
+OBJS="$OBJS $BUILDDIR/sdk/random.o"
 
 LIBK_OBJS=""
 
