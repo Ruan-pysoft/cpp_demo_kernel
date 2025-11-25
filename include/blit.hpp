@@ -8,7 +8,7 @@
 // for abort and interrupts, etc, when you don't want to jump into user code and deal with a cursor
 
 #define BLT_CHR(c) (0xC000 | uint16_t(c))
-#define BLT_PUT_CHR(ix, c) ((uint16_t*)VGA_ADDR)[ix] = BLT_CHR(c)
+#define BLT_PUT_CHR(ix, c) ((uint16_t*)vga::ADDR)[ix] = BLT_CHR(c)
 #define BLT_PUT_STR(ix, s, l) do { \
 		for (size_t _blt_str_idx = 0; _blt_str_idx < l; ++_blt_str_idx) { \
 			BLT_PUT_CHR(ix + _blt_str_idx, s[_blt_str_idx]); \
@@ -37,16 +37,16 @@ extern "C" void blt_write_chr(char c);
 extern "C" void blt_write_str(char *s, size_t l);
 extern "C" void blt_write_hex(uint32_t x);
 
-#define BLT_IDX(x, y) (y * VGA_WIDTH + x)
-#define BLT_X (blit::vga_idx % VGA_WIDTH)
-#define BLT_Y (blit::vga_idx / VGA_WIDTH)
+#define BLT_IDX(x, y) (y * vga::WIDTH + x)
+#define BLT_X (blit::vga_idx % vga::WIDTH)
+#define BLT_Y (blit::vga_idx / vga::WIDTH)
 
 extern "C" constexpr size_t blt_idx(uint32_t x, uint32_t y);
 extern "C" uint32_t blt_x(void);
 extern "C" uint32_t blt_y(void);
 
-#define BLT_WRAP() do { if (blit::vga_idx >= VGA_WIDTH*VGA_HEIGHT) blit::vga_idx -= VGA_WIDTH*VGA_HEIGHT; } while (0)
-#define BLT_NEWLINE() do { blit::vga_idx += VGA_WIDTH; blit::vga_idx -= BLT_X; BLT_WRAP(); } while (0)
+#define BLT_WRAP() do { if (blit::vga_idx >= vga::WIDTH*vga::HEIGHT) blit::vga_idx -= vga::WIDTH*vga::HEIGHT; } while (0)
+#define BLT_NEWLINE() do { blit::vga_idx += vga::WIDTH; blit::vga_idx -= BLT_X; BLT_WRAP(); } while (0)
 
 extern "C" void blt_wrap(void);
 extern "C" void blt_newline(void);

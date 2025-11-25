@@ -11,6 +11,8 @@
 #include "apps/callback_demo.hpp"
 #include "apps/ignore_demo.hpp"
 
+using namespace term;
+
 namespace main_menu {
 
 namespace {
@@ -30,33 +32,33 @@ struct State {
 	size_t index = 0;
 
 	void redraw() {
-		cursor_disable();
-		term_resetcolor();
-		term_clear();
-		term_goto(0, 0);
+		cursor::disable();
+		resetcolor();
+		clear();
+		go_to(0, 0);
 
 		const char *title = "AVAILABLE APPLICATIONS";
 		const size_t title_len = strlen(title);
-		const size_t title_offset = (VGA_WIDTH - title_len) / 2;
+		const size_t title_offset = (vga::WIDTH - title_len) / 2;
 
-		term_goto(title_offset, 1);
-		term_setcolor(vga_entry_color(vga_color::black, vga_color::light_grey));
-		term_writestring(title);
-		term_resetcolor();
+		go_to(title_offset, 1);
+		setcolor(vga::entry_color(vga::Color::Black, vga::Color::LightGrey));
+		writestring(title);
+		resetcolor();
 
 		for (size_t i = 0; i < menu_entries_len; ++i) {
-			term_goto(1, 3 + i);
-			term_putchar('-');
+			go_to(1, 3 + i);
+			putchar('-');
 
 			if (i == index) {
-				term_setcolor(vga_entry_color(vga_color::blue, vga_color::white));
+				setcolor(vga::entry_color(vga::Color::Blue, vga::Color::White));
 			}
 
-			term_goto(3, 3 + i);
-			term_writestring(menu_entries[i].name);
+			go_to(3, 3 + i);
+			writestring(menu_entries[i].name);
 
 			if (i == index) {
-				term_resetcolor();
+				resetcolor();
 			}
 		}
 	}
@@ -95,10 +97,10 @@ struct State {
 			} break;
 			case ps2::KEY_ENTER:
 			case ps2::KEY_SPACE: {
-				cursor_enable(8, 15);
-				term_resetcolor();
-				term_clear();
-				term_goto(0, 0);
+				cursor::enable(8, 15);
+				resetcolor();
+				clear();
+				go_to(0, 0);
 				menu_entries[index].main();
 			} break;
 			default: break;

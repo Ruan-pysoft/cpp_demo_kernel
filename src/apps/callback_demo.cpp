@@ -21,7 +21,7 @@ void keyevent_callback(State *state, ps2::Event event) {
 	if (event.key == ps2::KEY_ESCAPE) {
 		state->should_quit = true;
 	} else if (event.key == ps2::KEY_BACKSPACE) {
-		term_backspace();
+		term::backspace();
 	} else if (ps2::key_ascii_map[event.key]) {
 		putchar(ps2::key_ascii_map[event.key]);
 	}

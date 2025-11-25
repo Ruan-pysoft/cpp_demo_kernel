@@ -6,152 +6,160 @@
 #include <string.h>
 #include "ioport.hpp"
 
-static size_t term_row;
-static size_t term_col;
-static vga_entry_color_t term_color;
-static volatile vga_entry_t *const term_buffer = (vga_entry_t*)VGA_ADDR;
-static bool move_cursor;
+namespace term {
 
-void term_init() {
-	term_row = 0;
-	term_col = 0;
+namespace {
 
-	term_resetcolor();
+size_t row;
+size_t col;
+vga::entry_color_t color;
+volatile vga::entry_t *const buffer = (vga::entry_t*)vga::ADDR;
+bool move_cursor;
 
-	term_clear();
+}
+
+void init() {
+	row = 0;
+	col = 0;
+
+	resetcolor();
+
+	clear();
 
 	move_cursor = true;
-	cursor_enable(8, 15);
-	cursor_goto(0, 0);
+	cursor::enable(8, 15);
+	cursor::go_to(0, 0);
 }
-void term_clear() {
-	for (size_t y = 0; y < VGA_HEIGHT; ++y) {
-		for (size_t x = 0; x < VGA_WIDTH; ++x) {
-			const size_t index = y * VGA_WIDTH + x;
-			term_buffer[index] = vga_entry(' ', term_color);
+void clear() {
+	for (size_t y = 0; y < vga::HEIGHT; ++y) {
+		for (size_t x = 0; x < vga::WIDTH; ++x) {
+			const size_t index = y * vga::WIDTH + x;
+			buffer[index] = vga::entry(' ', color);
 		}
 	}
 }
-void term_goto(size_t x, size_t y) {
-	term_col = x;
-	term_row = y;
-	if (term_col > VGA_WIDTH) term_col = VGA_WIDTH-1;
-	if (term_row > VGA_HEIGHT) term_row = VGA_HEIGHT-1;
-	if (move_cursor) cursor_goto(term_col, term_row);
+void go_to(size_t x, size_t y) {
+	col = x;
+	row = y;
+	if (col > vga::WIDTH) col = vga::WIDTH-1;
+	if (row > vga::HEIGHT) row = vga::HEIGHT-1;
+	if (move_cursor) cursor::go_to(col, row);
 }
-void term_setcolor(vga_entry_color_t color) {
-	term_color = color;
+void setcolor(vga::entry_color_t color) {
+	::term::color = color;
 }
-vga_entry_color_t term_getcolor() {
-	return term_color;
+vga::entry_color_t getcolor() {
+	return color;
 }
-void term_resetcolor() {
-	term_setcolor(vga_entry_color(vga_color::light_grey, vga_color::black));
+void resetcolor() {
+	setcolor(vga::entry_color(vga::Color::LightGrey, vga::Color::Black));
 }
-void term_putentryat(vga_entry_t entry, size_t x, size_t y) {
-	const size_t index = y * VGA_WIDTH + x;
-	term_buffer[index] = entry;
+void putentryat(vga::entry_t entry, size_t x, size_t y) {
+	const size_t index = y * vga::WIDTH + x;
+	buffer[index] = entry;
 }
-void term_putbyteat(uint8_t byte, vga_entry_color_t color, size_t x, size_t y) {
-	term_putentryat(vga_entry(byte, color), x, y);
+void putbyteat(uint8_t byte, vga::entry_color_t color, size_t x, size_t y) {
+	putentryat(vga::entry(byte, color), x, y);
 }
-void term_scroll(size_t lines) {
-	for (size_t y = lines; y < VGA_HEIGHT; ++y) {
-		for (size_t x = 0; x < VGA_WIDTH; ++x) {
-			const size_t index = y * VGA_WIDTH + x;
-			const size_t prev_index = (y-lines) * VGA_WIDTH + x;
+void scroll(size_t lines) {
+	for (size_t y = lines; y < vga::HEIGHT; ++y) {
+		for (size_t x = 0; x < vga::WIDTH; ++x) {
+			const size_t index = y * vga::WIDTH + x;
+			const size_t prev_index = (y-lines) * vga::WIDTH + x;
 
-			term_buffer[prev_index] = term_buffer[index];
+			buffer[prev_index] = buffer[index];
 		}
 	}
-	for (size_t y = VGA_HEIGHT - lines; y < VGA_HEIGHT; ++y) {
-		for (size_t x = 0; x < VGA_WIDTH; ++x) {
-			const size_t index = y * VGA_WIDTH + x;
+	for (size_t y = vga::HEIGHT - lines; y < vga::HEIGHT; ++y) {
+		for (size_t x = 0; x < vga::WIDTH; ++x) {
+			const size_t index = y * vga::WIDTH + x;
 
-			term_buffer[index] = vga_entry(' ', term_color);
+			buffer[index] = vga::entry(' ', color);
 		}
 	}
-	term_row -= lines;
-	if (move_cursor) cursor_goto(term_col, term_row);
+	row -= lines;
+	if (move_cursor) cursor::go_to(col, row);
 }
-void term_advance() {
-	if (++term_col == VGA_WIDTH) {
-		term_col = 0;
-		if (++term_row == VGA_HEIGHT) term_scroll(2);
+void advance() {
+	if (++col == vga::WIDTH) {
+		col = 0;
+		if (++row == vga::HEIGHT) scroll(2);
 	}
-	if (move_cursor) cursor_goto(term_col, term_row);
+	if (move_cursor) cursor::go_to(col, row);
 }
-void term_putbyte(uint8_t byte) {
-	term_putbyteat(byte, term_color, term_col, term_row);
-	term_advance();
+void putbyte(uint8_t byte) {
+	putbyteat(byte, color, col, row);
+	advance();
 }
-void term_putchar(char c) {
+void putchar(char c) {
 	if (c == '\n') {
-		term_col = 0;
-		if (++term_row == VGA_HEIGHT) term_scroll(2);
-		if (move_cursor) cursor_goto(term_col, term_row);
+		col = 0;
+		if (++row == vga::HEIGHT) scroll(2);
+		if (move_cursor) cursor::go_to(col, row);
 	} else {
-		term_putbyte(uint8_t(c));
+		putbyte(uint8_t(c));
 	}
 }
-void term_backspace() {
-	if (term_col == 0) {
-		if (term_row == 0) return; // no back buffer, so can't go further back
+void backspace() {
+	if (col == 0) {
+		if (row == 0) return; // no back buffer, so can't go further back
 		else {
-			--term_row;
-			term_col = VGA_WIDTH - 1;
+			--row;
+			col = vga::WIDTH - 1;
 		}
-	} else --term_col;
+	} else --col;
 
-	term_putbyteat(' ', term_color, term_col, term_row);
-	if (move_cursor) cursor_goto(term_col, term_row);
+	putbyteat(' ', color, col, row);
+	if (move_cursor) cursor::go_to(col, row);
 }
-void term_write_raw(const uint8_t *data, size_t size) {
+void write_raw(const uint8_t *data, size_t size) {
 	const bool did_move_cursor = move_cursor;
 	move_cursor = false;
 
 	for (size_t i = 0; i < size; ++i) {
-		term_putbyte(data[i]);
+		putbyte(data[i]);
 	}
 
 	move_cursor = did_move_cursor;
-	if (move_cursor) cursor_goto(term_col, term_row);
+	if (move_cursor) cursor::go_to(col, row);
 }
-void term_write(const char *data, size_t size) {
+void write(const char *data, size_t size) {
 	const bool did_move_cursor = move_cursor;
 	move_cursor = false;
 
 	for (size_t i = 0; i < size; ++i) {
-		term_putchar(data[i]);
+		putchar(data[i]);
 	}
 
 	move_cursor = did_move_cursor;
-	if (move_cursor) cursor_goto(term_col, term_row);
+	if (move_cursor) cursor::go_to(col, row);
 }
-void term_writestring(const char *str) {
-	term_write(str, strlen(str));
+void writestring(const char *str) {
+	write(str, strlen(str));
 }
 
-void cursor_enable(uint8_t cursor_start, uint8_t cursor_end) {
+namespace cursor {
+
+void enable(uint8_t cursor_start, uint8_t cursor_end) {
 	outb(0x3D4, 0x0A);
 	outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
 
 	outb(0x3D4, 0x0B);
 	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
 }
-void cursor_disable() {
+void disable() {
 	outb(0x3D4, 0x0A);
 	outb(0x3D5, 0x20);
 }
-void cursor_goto(size_t x, size_t y) {
-	const uint16_t pos = y * VGA_WIDTH + x;
+void go_to(size_t x, size_t y) {
+	const uint16_t pos = y * vga::WIDTH + x;
 
 	outb(0x3D4, 0x0F);
 	outb(0x3D5, uint8_t(pos & 0xFF));
 	outb(0x3D4, 0x0E);
 	outb(0x3D5, uint8_t(pos >> 8));
 }
-uint16_t cursor_getpos() {
+uint16_t getpos() {
 	uint16_t pos = 0;
 
 	outb(0x3D4, 0x0F);
@@ -160,16 +168,20 @@ uint16_t cursor_getpos() {
 	pos |= uint16_t(inb(0x3D5)) << 8;
 	return pos;
 }
-size_t cursor_getx() {
-	return cursor_getpos() % VGA_WIDTH;
+size_t getx() {
+	return cursor::getpos() % vga::WIDTH;
 }
-size_t cursor_gety() {
-	return cursor_getpos() / VGA_WIDTH;
+size_t gety() {
+	return cursor::getpos() / vga::WIDTH;
 }
-uint16_t cursor_getxy() {
-	const uint16_t pos = cursor_getpos();
-	const uint8_t y = pos / VGA_WIDTH;
-	const uint8_t x = pos - (y * VGA_WIDTH);
+uint16_t getxy() {
+	const uint16_t pos = cursor::getpos();
+	const uint8_t y = pos / vga::WIDTH;
+	const uint8_t x = pos - (y * vga::WIDTH);
 
 	return x | (uint16_t(y) << 8);
+}
+
+}
+
 }

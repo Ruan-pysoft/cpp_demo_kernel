@@ -29,7 +29,7 @@ static int print_uint32(uint32_t u) {
 		++len;
 	}
 
-	term_write(&buf[10-len + 1], len);
+	term::write(&buf[10-len + 1], len);
 
 	return len;
 }
@@ -66,7 +66,7 @@ static int print_int32(int32_t d) {
 		++len;
 	}
 
-	term_write(&buf[10-len + 1], len);
+	term::write(&buf[10-len + 1], len);
 
 	return len;
 }
@@ -94,7 +94,7 @@ static int print_hex32(int32_t x) {
 		++len;
 	}
 
-	term_write(&buf[8-len + 1], len);
+	term::write(&buf[8-len + 1], len);
 
 	return len;
 }
@@ -116,8 +116,8 @@ static int print_pointer(void *p) {
 		x >>= 4;
 	}
 
-	term_writestring("0x");
-	term_write(buf, 8);
+	term::writestring("0x");
+	term::write(buf, 8);
 
 	return 10;
 }
@@ -147,7 +147,7 @@ int printf(const char *__restrict format, ...) {
 				return -1; // overflow
 			}
 
-			term_write(format, amount);
+			term::write(format, amount);
 
 			format += amount;
 			written += amount;
@@ -162,7 +162,7 @@ int printf(const char *__restrict format, ...) {
 			const char c = (char)va_arg(parameters, int /* char promotes to an int, for some reason?? */);
 			if (!maxrem) return -1; // overflow
 
-			term_putchar(c);
+			term::putchar(c);
 
 			++written;
 		} else if (*format == 's') {
@@ -172,7 +172,7 @@ int printf(const char *__restrict format, ...) {
 			const size_t len = strlen(str);
 			if (maxrem < len) return -1; // overflow
 
-			term_write(str, len);
+			term::write(str, len);
 
 			++written;
 		} else if (*format == 'u') {
@@ -218,7 +218,7 @@ int printf(const char *__restrict format, ...) {
 			size_t len = strlen(format);
 			if (maxrem < len) return -1;
 
-			term_write(format, len);
+			term::write(format, len);
 
 			written += len;
 			format += len;

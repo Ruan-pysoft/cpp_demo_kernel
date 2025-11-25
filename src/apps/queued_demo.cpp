@@ -25,7 +25,7 @@ void main() {
 			if (event.key == ps2::KEY_ESCAPE) {
 				should_quit = true;
 			} else if (event.key == ps2::KEY_BACKSPACE) {
-				term_backspace();
+				term::backspace();
 			} else if (ps2::key_ascii_map[event.key]) {
 				putchar(ps2::key_ascii_map[event.key]);
 			}

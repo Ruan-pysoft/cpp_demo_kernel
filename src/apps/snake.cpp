@@ -52,14 +52,14 @@ struct Pos {
 		const uint32_t rand = prng.next();
 		// technically biased towards lower numbers, but who cares?
 		return {
-			.x = (uint8_t)((rand&0xFF) % VGA_WIDTH),
-			.y = (uint8_t)(((rand>>8)&0xFF) % VGA_HEIGHT),
+			.x = (uint8_t)((rand&0xFF) % vga::WIDTH),
+			.y = (uint8_t)(((rand>>8)&0xFF) % vga::HEIGHT),
 		};
 	}
 };
 
 struct State;
-constexpr size_t MAX_SNAKE_SIZE = VGA_WIDTH*VGA_HEIGHT;
+constexpr size_t MAX_SNAKE_SIZE = vga::WIDTH*vga::HEIGHT;
 class Snake {
 	Pos segments[MAX_SNAKE_SIZE];
 	size_t num_segments;
@@ -68,7 +68,7 @@ class Snake {
 	bool has_prev_facing = false;
 	Direction facing;
 public:
-	Snake(Pos start = {VGA_WIDTH/2, VGA_HEIGHT/2}, size_t initial_segments = 5, Direction initial_dir = Direction::Left)
+	Snake(Pos start = {vga::WIDTH/2, vga::HEIGHT/2}, size_t initial_segments = 5, Direction initial_dir = Direction::Left)
 	: num_segments(initial_segments), facing(initial_dir) {
 		for (size_t i = 0; i < num_segments; ++i) {
 			segments[i] = start;
@@ -92,13 +92,13 @@ public:
 	void draw() const {
 		size_t i = num_segments;
 		while (i --> 0) {
-			term_goto(segments[i].x, segments[i].y);
-			term_setcolor(vga_entry_color(
-				vga_color::green,
-				vga_color::black
+			term::go_to(segments[i].x, segments[i].y);
+			term::setcolor(vga::entry_color(
+				vga::Color::Green,
+				vga::Color::Black
 			));
-			term_putchar('@');
-			term_resetcolor();
+			term::putchar('@');
+			term::resetcolor();
 		}
 	}
 };
@@ -154,19 +154,21 @@ void handle_keypress(State *state, ps2::Event event) {
 }
 
 void draw(State &state) {
-	term_clear();
-	cursor_disable();
+	using namespace term;
 
-	term_goto(2, 1);
+	clear();
+	cursor::disable();
+
+	go_to(2, 1);
 	printf("Score: %d", state.score);
 
-	term_goto(state.apple.x, state.apple.y);
-	term_setcolor(vga_entry_color(
-		vga_color::red,
-		vga_color::black
+	go_to(state.apple.x, state.apple.y);
+	setcolor(vga::entry_color(
+		vga::Color::Red,
+		vga::Color::Black
 	));
-	term_putchar('a');
-	term_resetcolor();
+	putchar('a');
+	resetcolor();
 
 	state.snake.draw();
 
@@ -174,28 +176,28 @@ void draw(State &state) {
 		const char *lose_text =  " ** GAME OVER ** ";
 		const char *frame_text = "                 ";
 		const size_t lose_text_len = strlen(lose_text);
-		const size_t lose_text_offset = (VGA_WIDTH - lose_text_len)/2;
+		const size_t lose_text_offset = (vga::WIDTH - lose_text_len)/2;
 
 		if (state.blink_state) {
-			term_setcolor(vga_entry_color(
-				vga_color::white,
-				vga_color::red
+			setcolor(vga::entry_color(
+				vga::Color::White,
+				vga::Color::Red
 			));
 		} else {
-			term_setcolor(vga_entry_color(
-				vga_color::red,
-				vga_color::white
+			setcolor(vga::entry_color(
+				vga::Color::Red,
+				vga::Color::White
 			));
 		}
 
-		term_goto(lose_text_offset, VGA_HEIGHT/2 - 1);
-		term_writestring(frame_text);
-		term_goto(lose_text_offset, VGA_HEIGHT/2);
-		term_writestring(lose_text);
-		term_goto(lose_text_offset, VGA_HEIGHT/2 + 1);
-		term_writestring(frame_text);
+		go_to(lose_text_offset, vga::HEIGHT/2 - 1);
+		writestring(frame_text);
+		go_to(lose_text_offset, vga::HEIGHT/2);
+		writestring(lose_text);
+		go_to(lose_text_offset, vga::HEIGHT/2 + 1);
+		writestring(frame_text);
 
-		term_resetcolor();
+		resetcolor();
 	}
 }
 
@@ -212,18 +214,18 @@ void Snake::update(State &state) {
 	switch (facing) {
 		case Direction::Left: {
 			next_head_pos.x = next_head_pos.x == 0
-				? VGA_WIDTH - 1 : next_head_pos.x - 1;
+				? vga::WIDTH - 1 : next_head_pos.x - 1;
 		} break;
 		case Direction::Down: {
-			next_head_pos.y = next_head_pos.y == VGA_HEIGHT - 1
+			next_head_pos.y = next_head_pos.y == vga::HEIGHT - 1
 				? 0 : next_head_pos.y + 1;
 		} break;
 		case Direction::Up: {
 			next_head_pos.y = next_head_pos.y == 0
-				? VGA_HEIGHT - 1 : next_head_pos.y - 1;
+				? vga::HEIGHT - 1 : next_head_pos.y - 1;
 		} break;
 		case Direction::Right: {
-			next_head_pos.x = next_head_pos.x == VGA_WIDTH - 1
+			next_head_pos.x = next_head_pos.x == vga::WIDTH - 1
 				? 0 : next_head_pos.x + 1;
 		} break;
 	}

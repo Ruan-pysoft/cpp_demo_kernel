@@ -39,7 +39,7 @@ void main() {
 				if (key == ps2::KEY_ESCAPE) {
 					should_quit = true;
 				} else if (key == ps2::KEY_BACKSPACE) {
-					term_backspace();
+					term::backspace();
 				} else if (ps2::key_ascii_map[key]) {
 					putchar(ps2::key_ascii_map[key]);
 				}

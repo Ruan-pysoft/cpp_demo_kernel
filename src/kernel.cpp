@@ -41,7 +41,7 @@ void kernel_early_main() {
 	__asm__ volatile("cli" ::: "memory");
 
 	/* Initialize terminal interface */
-	term_init();
+	term::init();
 
 	gdt::init();
 	gdt::load();
@@ -78,9 +78,9 @@ void kernel_main(void) {
 	puts("Character set:");
 	for (uint8_t high_half = 0; high_half < 0xF; ++high_half) {
 		constexpr uint16_t indent = 0x2020;
-		term_write_raw((uint8_t*)&indent, 2);
+		term::write_raw((uint8_t*)&indent, 2);
 		for (uint8_t low_half = 0; low_half < 0xF; ++low_half) {
-			term_putbyte(low_half + (high_half << 4));
+			term::putbyte(low_half + (high_half << 4));
 		}
 		putchar('\n');
 	}

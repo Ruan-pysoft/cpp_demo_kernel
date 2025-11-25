@@ -3,8 +3,8 @@
 #include "vga.hpp"
 
 int puts(const char *s) {
-	term_writestring(s);
-	term_putchar('\n');
+	term::writestring(s);
+	term::putchar('\n');
 
 	return 0;
 }
