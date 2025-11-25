@@ -15,6 +15,7 @@ size_t col;
 vga::entry_color_t color;
 volatile vga::entry_t *const buffer = (vga::entry_t*)vga::ADDR;
 bool move_cursor;
+bool autoscroll;
 
 }
 
@@ -29,6 +30,8 @@ void init() {
 	move_cursor = true;
 	cursor::enable(8, 15);
 	cursor::go_to(0, 0);
+
+	enable_autoscroll();
 }
 void clear() {
 	for (size_t y = 0; y < vga::HEIGHT; ++y) {
@@ -61,6 +64,12 @@ void putentryat(vga::entry_t entry, size_t x, size_t y) {
 void putbyteat(uint8_t byte, vga::entry_color_t color, size_t x, size_t y) {
 	putentryat(vga::entry(byte, color), x, y);
 }
+void enable_autoscroll() {
+	autoscroll = true;
+}
+void disable_autoscroll() {
+	autoscroll = false;
+}
 void scroll(size_t lines) {
 	for (size_t y = lines; y < vga::HEIGHT; ++y) {
 		for (size_t x = 0; x < vga::WIDTH; ++x) {
@@ -83,7 +92,10 @@ void scroll(size_t lines) {
 void advance() {
 	if (++col == vga::WIDTH) {
 		col = 0;
-		if (++row == vga::HEIGHT) scroll(2);
+		if (++row == vga::HEIGHT) {
+			if (autoscroll) scroll(2);
+			else row = 0;
+		}
 	}
 	if (move_cursor) cursor::go_to(col, row);
 }
@@ -94,7 +106,10 @@ void putbyte(uint8_t byte) {
 void putchar(char c) {
 	if (c == '\n') {
 		col = 0;
-		if (++row == vga::HEIGHT) scroll(2);
+		if (++row == vga::HEIGHT) {
+			if (autoscroll) scroll(2);
+			else row = 0;
+		}
 		if (move_cursor) cursor::go_to(col, row);
 	} else {
 		putbyte(uint8_t(c));

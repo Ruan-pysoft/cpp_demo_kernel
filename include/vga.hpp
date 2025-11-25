@@ -57,6 +57,8 @@ vga::entry_color_t getcolor();
 void resetcolor();
 void putentryat(vga::entry_t entry, size_t x, size_t y); /* WARN: no bounds checking */
 void putbyteat(uint8_t byte, vga::entry_color_t color, size_t x, size_t y); /* WARN: no bounds checking */
+void enable_autoscroll();
+void disable_autoscroll();
 void scroll(size_t lines);
 void advance();
 void putbyte(uint8_t byte);

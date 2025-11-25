@@ -259,7 +259,10 @@ void Snake::update(State &state) {
 }
 
 void main() {
+	term::disable_autoscroll();
+
 	bool should_quit = false;
+
 	while (!should_quit) {
 		State state{};
 		state.apple = Pos::random_pos(state.prng);
@@ -298,6 +301,8 @@ void main() {
 
 		should_quit = state.should_quit;
 	}
+
+	term::enable_autoscroll();
 }
 
 }
