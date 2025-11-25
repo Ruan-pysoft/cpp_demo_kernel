@@ -25,6 +25,7 @@ size_t Backbuffer::instance_count = 0;
 Backbuffer::Backbuffer() {
 	if (instance_count == 0) {
 		::term::buffer = this->buffer;
+		memcpy(this->buffer, (void*)vga_buffer, sizeof(buffer));
 	}
 	++instance_count;
 }

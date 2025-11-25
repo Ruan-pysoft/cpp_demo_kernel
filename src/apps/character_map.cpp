@@ -18,6 +18,8 @@ struct State {
 };
 
 void draw(State &state) {
+	auto _ = term::Backbuffer();
+
 	const char *title = "CHARACTER SET";
 	const size_t title_len = strlen(title);
 	const size_t title_offset = (vga::WIDTH - title_len)/2;

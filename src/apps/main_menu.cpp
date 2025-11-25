@@ -35,6 +35,8 @@ struct State {
 	size_t index = 0;
 
 	void redraw() {
+		auto _ = Backbuffer();
+
 		cursor::disable();
 		resetcolor();
 		clear();

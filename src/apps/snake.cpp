@@ -123,11 +123,17 @@ public:
 	}
 };
 
+enum class Mode {
+	Game,
+	HelpScreen,
+};
+
 struct State {
 	bool should_quit = false;
 	bool restart = false;
 	bool lost = false;
 	bool blink_state = false;
+	Mode mode = Mode::Game;
 	sdk::random::Xorshift32 prng{}; // I assume the constructor gets called each tame State is created? idk, I'll figure it out later
 	Snake snake{};
 	Pos apple;
@@ -183,6 +189,11 @@ void draw(State &state) {
 
 	go_to(2, 1);
 	printf("Score: %d", state.score);
+
+	const char *help_text = "Press ? for help";
+	const size_t help_len = strlen(help_text);
+	go_to(vga::WIDTH - help_len - 2, 1);
+	writestring(help_text);
 
 	state.apple.go_to();
 	setcolor(vga::entry_color(
