@@ -15,11 +15,11 @@ struct State {
 	bool should_quit = false;
 };
 
-void keyevent_callback(State *state, ps2::Event event) {
+void keyevent_callback(State &state, ps2::Event event) {
 	if (event.type != ps2::EventType::Press && event.type != ps2::EventType::Bounce) return;
 
 	if (event.key == ps2::KEY_ESCAPE) {
-		state->should_quit = true;
+		state.should_quit = true;
 	} else if (event.key == ps2::KEY_BACKSPACE) {
 		term::backspace();
 	} else if (ps2::key_ascii_map[event.key]) {
@@ -32,9 +32,9 @@ void keyevent_callback(State *state, ps2::Event event) {
 void main() {
 	State state{};
 
-	sdk::CallbackEventLoop event_loop {
-		(sdk::CallbackEventLoop::cb_t)keyevent_callback,
-		&state
+	sdk::CallbackEventLoop<State&> event_loop {
+		keyevent_callback,
+		state
 	};
 
 	puts("Demo using callback-based event loop");

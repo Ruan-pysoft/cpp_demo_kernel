@@ -112,18 +112,6 @@ const EventQueue &QueuedEventLoop::events() const {
 	return *consumer;
 }
 
-void CallbackEventLoop::frame_startup() { }
-void CallbackEventLoop::frame_teardown() { }
-
-CallbackEventLoop::CallbackEventLoop(CallbackEventLoop::cb_t cb, void *arg)
-: cb(cb), arg(arg) { }
-
-void CallbackEventLoop::poll() {
-	while (!ps2::events.empty()) {
-		cb(arg, ps2::events.pop());
-	}
-}
-
 void IgnoreEventLoop::frame_startup() { }
 void IgnoreEventLoop::frame_teardown() { }
 

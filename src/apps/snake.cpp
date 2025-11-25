@@ -155,39 +155,39 @@ struct State {
 	int score = 0;
 };
 
-void handle_keypress(State *state, ps2::Event event) {
+void handle_keypress(State &state, ps2::Event event) {
 	if (event.type == ps2::EventType::Press) {
 		switch (event.key) {
 			case ps2::KEY_Q:
 			case ps2::KEY_ESCAPE: {
-				state->should_quit = true;
+				state.should_quit = true;
 			} break;
 			case ps2::KEY_R:
 			case ps2::KEY_ENTER: {
 				// only allow the player to restart from the game over screen;
 				// if they want to restart in play, they just have to run into themselves
-				if (state->lost) state->restart = true;
+				if (state.lost) state.restart = true;
 			} break;
 
 			case ps2::KEY_LEFT:
 			case ps2::KEY_A:
 			case ps2::KEY_H: {
-				state->snake.look(Direction::Left);
+				state.snake.look(Direction::Left);
 			} break;
 			case ps2::KEY_DOWN:
 			case ps2::KEY_D:
 			case ps2::KEY_J: {
-				state->snake.look(Direction::Down);
+				state.snake.look(Direction::Down);
 			} break;
 			case ps2::KEY_UP:
 			case ps2::KEY_W:
 			case ps2::KEY_K: {
-				state->snake.look(Direction::Up);
+				state.snake.look(Direction::Up);
 			} break;
 			case ps2::KEY_RIGHT:
 			case ps2::KEY_S:
 			case ps2::KEY_L: {
-				state->snake.look(Direction::Right);
+				state.snake.look(Direction::Right);
 			} break;
 			default: break;
 		}
@@ -291,9 +291,9 @@ void main() {
 		State state{};
 		state.apple = Pos::random_pos(state.prng);
 
-		sdk::CallbackEventLoop event_loop {
-			(sdk::CallbackEventLoop::cb_t)handle_keypress,
-			&state,
+		sdk::CallbackEventLoop<State&> event_loop {
+			handle_keypress,
+			state,
 		};
 
 		draw(state);

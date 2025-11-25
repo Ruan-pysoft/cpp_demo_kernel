@@ -89,20 +89,25 @@ public:
 	const EventQueue &events() const;
 };
 
+template<typename T>
 class CallbackEventLoop : public EventLoop {
 public:
-	using cb_t = void(*)(void*, ps2::Event);
+	using cb_t = void(*)(T, ps2::Event);
 
 private:
 	cb_t cb;
-	void *arg;
+	T arg;
 	
-	virtual void frame_startup() override;
-	virtual void frame_teardown() override;
+	virtual void frame_startup() override { }
+	virtual void frame_teardown() override { }
 public:
-	CallbackEventLoop(cb_t cb, void *arg);
+	CallbackEventLoop(cb_t cb, T arg) : cb(cb), arg(arg) { }
 
-	virtual void poll() override;
+	virtual void poll() override {
+		while (!ps2::events.empty()) {
+			cb(arg, ps2::events.pop());
+		}
+	}
 };
 
 class IgnoreEventLoop : public EventLoop {
