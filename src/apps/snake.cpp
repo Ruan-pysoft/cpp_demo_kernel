@@ -176,6 +176,8 @@ void handle_keypress(State &state, ps2::Event event) {
 void draw(State &state) {
 	using namespace term;
 
+	auto _ = Backbuffer();
+
 	clear();
 	cursor::disable();
 

@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include <string.h>
 #include "ioport.hpp"
@@ -13,15 +14,33 @@ namespace {
 size_t row;
 size_t col;
 vga::entry_color_t color;
-volatile vga::entry_t *const buffer = (vga::entry_t*)vga::ADDR;
+volatile vga::entry_t *const vga_buffer = (vga::entry_t*)vga::ADDR;
 bool move_cursor;
 bool autoscroll;
+volatile vga::entry_t *buffer;
 
+}
+
+size_t Backbuffer::instance_count = 0;
+Backbuffer::Backbuffer() {
+	if (instance_count == 0) {
+		::term::buffer = this->buffer;
+	}
+	++instance_count;
+}
+Backbuffer::~Backbuffer() {
+	--instance_count;
+	if (instance_count == 0) {
+		::term::buffer = vga_buffer;
+		memcpy((void*)vga_buffer, buffer, sizeof(buffer));
+	}
 }
 
 void init() {
 	row = 0;
 	col = 0;
+
+	buffer = vga_buffer;
 
 	resetcolor();
 

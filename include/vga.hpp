@@ -49,6 +49,14 @@ constexpr static inline entry_t entry(uint8_t b, entry_color_t color) {
 
 namespace term {
 
+class Backbuffer {
+	static size_t instance_count;
+	vga::entry_t buffer[vga::WIDTH*vga::HEIGHT];
+public:
+	Backbuffer();
+	~Backbuffer();
+};
+
 void init();
 void clear();
 void go_to(size_t x, size_t y);
