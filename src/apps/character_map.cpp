@@ -71,7 +71,7 @@ void draw(State &state) {
 		}
 	}
 
-	const char *help_text = "Press ESC or Q to quit | Press : and then a letter to jump to that letter";
+	const char *help_text = "Press ESC or Q to quit \xb3 Press : and then a letter to jump to that letter";
 	const size_t help_len = strlen(help_text);
 	const size_t help_offset = (vga::WIDTH - help_len)/2;
 

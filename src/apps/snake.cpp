@@ -13,6 +13,9 @@ namespace snake {
 
 namespace {
 
+constexpr size_t STAGE_WIDTH = vga::WIDTH/2;
+constexpr size_t STAGE_HEIGHT = vga::HEIGHT;
+
 enum class Direction {
 	Left,
 	Down,
@@ -48,18 +51,48 @@ struct Pos {
 		return x == other.x && y == other.y;
 	}
 
+	inline void go_to() const {
+		term::go_to(x*2, y);
+	}
+
+	inline void move(Direction dir) {
+		*this = moved(dir);
+	}
+	inline Pos moved(Direction dir) const {
+		Pos res = *this;
+		switch (dir) {
+			case Direction::Left: {
+				res.x = res.x == 0
+					? STAGE_WIDTH - 1 : res.x - 1;
+			} break;
+			case Direction::Down: {
+				res.y = res.y == STAGE_HEIGHT - 1
+					? 0 : res.y + 1;
+			} break;
+			case Direction::Up: {
+				res.y = res.y == 0
+					? STAGE_HEIGHT - 1 : res.y - 1;
+			} break;
+			case Direction::Right: {
+				res.x = res.x == STAGE_WIDTH - 1
+					? 0 : res.x + 1;
+			} break;
+		}
+		return res;
+	}
+
 	static Pos random_pos(Prng &prng) {
 		const uint32_t rand = prng.next();
 		// technically biased towards lower numbers, but who cares?
 		return {
-			.x = (uint8_t)((rand&0xFF) % vga::WIDTH),
-			.y = (uint8_t)(((rand>>8)&0xFF) % vga::HEIGHT),
+			.x = (uint8_t)((rand&0xFF) % STAGE_WIDTH),
+			.y = (uint8_t)(((rand>>8)&0xFF) % STAGE_HEIGHT),
 		};
 	}
 };
 
 struct State;
-constexpr size_t MAX_SNAKE_SIZE = vga::WIDTH*vga::HEIGHT;
+constexpr size_t MAX_SNAKE_SIZE = STAGE_WIDTH*STAGE_HEIGHT;
 class Snake {
 	Pos segments[MAX_SNAKE_SIZE];
 	size_t num_segments;
@@ -68,7 +101,7 @@ class Snake {
 	bool has_prev_facing = false;
 	Direction facing;
 public:
-	Snake(Pos start = {vga::WIDTH/2, vga::HEIGHT/2}, size_t initial_segments = 5, Direction initial_dir = Direction::Left)
+	Snake(Pos start = {STAGE_WIDTH/2, STAGE_HEIGHT/2}, size_t initial_segments = 5, Direction initial_dir = Direction::Left)
 	: num_segments(initial_segments), facing(initial_dir) {
 		for (size_t i = 0; i < num_segments; ++i) {
 			segments[i] = start;
@@ -90,16 +123,22 @@ public:
 
 	void update(State &state);
 	void draw() const {
+		term::setcolor(vga::entry_color(
+			vga::Color::Green,
+			vga::Color::Black
+		));
+
 		size_t i = num_segments;
-		while (i --> 0) {
-			term::go_to(segments[i].x, segments[i].y);
-			term::setcolor(vga::entry_color(
-				vga::Color::Green,
-				vga::Color::Black
-			));
-			term::putchar('@');
-			term::resetcolor();
+		while (i --> 1) {
+			segments[i].go_to();
+			term::putchar('[');
+			term::putchar(']');
 		}
+		segments[0].go_to();
+		term::putchar('(');
+		term::putchar(')');
+
+		term::resetcolor();
 	}
 };
 
@@ -162,12 +201,13 @@ void draw(State &state) {
 	go_to(2, 1);
 	printf("Score: %d", state.score);
 
-	go_to(state.apple.x, state.apple.y);
+	state.apple.go_to();
 	setcolor(vga::entry_color(
 		vga::Color::Red,
 		vga::Color::Black
 	));
-	putchar('a');
+	putchar('\xa2');
+	putchar('\x95');
 	resetcolor();
 
 	state.snake.draw();
@@ -210,25 +250,7 @@ void Snake::update(State &state) {
 	has_prev_facing = true;
 	prev_facing = facing;
 
-	Pos next_head_pos = segments[0];
-	switch (facing) {
-		case Direction::Left: {
-			next_head_pos.x = next_head_pos.x == 0
-				? vga::WIDTH - 1 : next_head_pos.x - 1;
-		} break;
-		case Direction::Down: {
-			next_head_pos.y = next_head_pos.y == vga::HEIGHT - 1
-				? 0 : next_head_pos.y + 1;
-		} break;
-		case Direction::Up: {
-			next_head_pos.y = next_head_pos.y == 0
-				? vga::HEIGHT - 1 : next_head_pos.y - 1;
-		} break;
-		case Direction::Right: {
-			next_head_pos.x = next_head_pos.x == vga::WIDTH - 1
-				? 0 : next_head_pos.x + 1;
-		} break;
-	}
+	Pos next_head_pos = segments[0].moved(facing);
 
 	if (next_head_pos == state.apple) {
 		state.apple = Pos::random_pos(state.prng);
