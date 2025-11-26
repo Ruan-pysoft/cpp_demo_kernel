@@ -54,7 +54,7 @@ static int print_int32(int32_t d) {
 
 	if (d < 0) {
 		putchar('-');;
-		return 1 + print_int32(d);
+		return 1 + print_int32(-d);
 	}
 
 	// construct the number backwards, starting with the least significant
