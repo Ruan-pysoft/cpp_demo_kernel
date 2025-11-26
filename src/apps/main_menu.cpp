@@ -92,6 +92,7 @@ struct State {
 			case ps2::KEY_K:
 			case ps2::KEY_H: {
 				if (index > 0) --index;
+				else index = menu_entries_len-1;
 			} break;
 			case ps2::KEY_DOWN:
 			case ps2::KEY_RIGHT:
@@ -100,6 +101,7 @@ struct State {
 			case ps2::KEY_J:
 			case ps2::KEY_L: {
 				if (index < menu_entries_len-1) ++index;
+				else index = 0;
 			} break;
 			case ps2::KEY_ENTER:
 			case ps2::KEY_SPACE: {
