@@ -17,6 +17,7 @@ struct InterpreterState {
 	size_t line_pos = 0;
 	size_t curr_word_pos = 0;
 	size_t curr_word_len = 0;
+	const char *err = NULL;
 };
 
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
@@ -61,15 +62,24 @@ struct PrimitiveEntry {
 	void(*func)();
 };
 void get_word();
+#define error(msg) do { \
+		state.interp.err = msg; \
+		return; \
+	} while (0)
+#define error_fun(fun, msg) do { \
+		state.interp.err = "Error in `" fun "`: " msg; \
+		return; \
+	} while (0)
+#define check_stack_len_lt(fun, expr) if (state.stack_len >= (expr)) error_fun(fun, "stack length should be < " #expr)
+#define check_stack_len_ge(fun, expr) if (state.stack_len < (expr)) error_fun(fun, "stack length should be >= " #expr)
 const PrimitiveEntry primitives[] = {
 	{ "dup", []() {
-		assert(state.stack_len >= 1);
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_ge("dup", 1);
+		check_stack_len_lt("dup", STACK_SIZE);
 		stack_push(stack_peek());
 	} },
 	{ "swap", []() {
-		assert(state.stack_len >= 2);
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_ge("swap", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
 		stack_push(top);
@@ -77,8 +87,7 @@ const PrimitiveEntry primitives[] = {
 	} },
 	{ "rot", []() {
 		// ( a b c -- b c a )
-		assert(state.stack_len >= 2);
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_ge("rot", 3);
 		const uint32_t c = stack_pop();
 		const uint32_t b = stack_pop();
 		const uint32_t a = stack_pop();
@@ -87,63 +96,63 @@ const PrimitiveEntry primitives[] = {
 		stack_push(a);
 	} },
 	{ "drop", []() {
-		assert(state.stack_len >= 1);
+		check_stack_len_ge("drop", 1);
 		stack_pop();
 	} },
 	{ "inc", []() {
-		assert(state.stack_len >= 1);
+		check_stack_len_ge("inc", 1);
 		++stack_get();
 	} },
 	{ "dec", []() {
-		assert(state.stack_len >= 1);
+		check_stack_len_ge("dec", 1);
 		--stack_get();
 	} },
 	{ "shl", []() {
-		assert(state.stack_len >= 2);
+		check_stack_len_ge("shl", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
 		stack_push(under_top << top);
 	} },
 	{ "shr", []() {
-		assert(state.stack_len >= 2);
+		check_stack_len_ge("shr", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
 		stack_push(under_top >> top);
 	} },
 	{ "or", []() {
-		assert(state.stack_len >= 2);
+		check_stack_len_ge("or", 2);
 		stack_push(stack_pop() | stack_pop());
 	} },
 	{ "and", []() {
-		assert(state.stack_len >= 2);
+		check_stack_len_ge("and", 2);
 		stack_push(stack_pop() & stack_pop());
 	} },
 	{ "xor", []() {
-		assert(state.stack_len >= 2);
+		check_stack_len_ge("xor", 2);
 		stack_push(stack_pop() ^ stack_pop());
 	} },
 	{ "not", []() {
-		assert(state.stack_len >= 1);
+		check_stack_len_ge("not", 1);
 		stack_push(~stack_pop());
 	} },
 	{ "true", []() {
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_lt("true", STACK_SIZE);
 		stack_push(~0);
 	} },
 	{ "false", []() {
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_lt("false", STACK_SIZE);
 		stack_push(0);
 	} },
 	{ "+", []() {
-		assert(state.stack_len >= 2);
+		check_stack_len_ge("+", 2);
 		stack_push(stack_pop() + stack_pop());
 	} },
 	{ "print", []() {
-		assert(state.stack_len >= 1);
+		check_stack_len_ge("print", 1);
 		printf("%d ", reinterpret_cast<uint32_t>(stack_pop()));
 	} },
 	{ "pstr", []() {
-		assert(state.stack_len >= 1);
+		check_stack_len_ge("pstr", 1);
 		const uint32_t str_raw = stack_pop();
 		const char *str = (char*)&str_raw;
 		for (size_t i = 0; i < 4; ++i) {
@@ -152,7 +161,7 @@ const PrimitiveEntry primitives[] = {
 		}
 	} },
 	{ "stack_len", []() {
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_lt("stack_len", STACK_SIZE);
 		stack_push(state.stack_len);
 	} },
 	{ "exit", []() {
@@ -162,14 +171,20 @@ const PrimitiveEntry primitives[] = {
 		state.should_quit = true;
 	} },
 	{ "hex", []() {
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_lt("hex", STACK_SIZE);
 		get_word();
-		assert(state.interp.curr_word_len != 0);
-		assert(state.interp.curr_word_len <= 8);
+		if (state.interp.curr_word_len == 0) {
+			error_fun("hex", "expected a hexadecimal number, didn't get anything");
+		}
+		if (state.interp.curr_word_len > 8) {
+			error_fun("hex", "largest supported number is FFFFFFFF");
+		}
 		uint32_t num = 0;
 		for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
 			const char ch = state.line[state.interp.curr_word_pos+i];
-			assert(('0' <= ch && ch <= '9') || ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z'));
+			if ((ch < '0' || '9' < ch) && (ch < 'a' || 'z' < ch) && (ch < 'A' || 'Z' < ch)) {
+				error_fun("hex", "expected hex number to consist only of hex digits (0-9, a-f, A-F)");
+			}
 			num <<= 4;
 			if ('0' <= ch && ch <= '9') {
 				num |= ch-'0';
@@ -182,10 +197,14 @@ const PrimitiveEntry primitives[] = {
 		stack_push(num);
 	} },
 	{ "'", []() {
-		assert(state.stack_len < STACK_SIZE);
+		check_stack_len_lt("'", STACK_SIZE);
 		get_word();
-		assert(state.interp.curr_word_len != 0);
-		assert(state.interp.curr_word_len <= 4);
+		if (state.interp.curr_word_len == 0) {
+			error_fun("'", "expected a short string, didn't get anything");
+		}
+		if (state.interp.curr_word_len > 8) {
+			error_fun("'", "short strings may be no longer than four characters");
+		}
 		uint32_t num = 0;
 		size_t i = state.interp.curr_word_len;
 		while (i --> 0) {
@@ -247,7 +266,7 @@ void interpret_line() {
 	size_t &word = state.interp.curr_word_pos;
 	size_t &len = state.interp.curr_word_len;
 
-	while (word < state.line_len) {
+	while (word < state.line_len && state.interp.err == NULL) {
 		get_word();
 		if (len == 0) break;
 
@@ -286,15 +305,38 @@ void interpret_line() {
 			}
 
 			if (is_number) {
-				assert(state.stack_len < STACK_SIZE);
-				state.stack[state.stack_len++] = number;
+				if (state.stack_len >= STACK_SIZE) {
+					state.interp.err = "Error at number literal: stack length should be < STACK_SIZE";
+				} else {
+					state.stack[state.stack_len++] = number;
+				}
 			} else {
-				assert(false && "Err: Undefined word");
+				state.interp.err = "Error: Undefined word";
 			}
 		}
 	}
 
 	putchar('\n');
+
+	if (state.interp.err) {
+		term::setcolor(vga::entry_color(
+			vga::Color::LightRed,
+			vga::Color::Black
+		));
+
+		puts(state.interp.err);
+		if (state.interp.curr_word_len == 0) {
+			puts("@ end of line");
+		} else {
+			printf("@ word starting at %u: ", state.interp.curr_word_pos);
+			for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
+				putchar(state.line[state.interp.curr_word_pos + i]);
+			}
+			putchar('\n');
+		}
+
+		term::resetcolor();
+	}
 }
 
 void handle_keyevent(ps2::EventType type, ps2::Key key) {
