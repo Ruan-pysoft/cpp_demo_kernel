@@ -20,8 +20,36 @@ struct InterpreterState {
 	const char *err = NULL;
 };
 
+struct CompiledState {
+	size_t pos = 0;
+	size_t len = 0;
+	size_t idx = 0;
+	const char *err = NULL;
+};
+
+struct PrimitiveEntry {
+	const char *name;
+	const char *desc;
+	void(*func)();
+};
+struct Word {
+	const char *name;
+	const char *desc;
+	uint32_t code_pos;
+	size_t code_len;
+};
+
+union CodeElem {
+	uint32_t lit;
+	void (*fun)();
+};
+static_assert(sizeof(CodeElem) == sizeof(uint32_t), "Expected pointer size to be 32 bits");
+
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t STACK_SIZE = 1024;
+constexpr size_t MAX_WORDS = 1024;
+constexpr size_t EST_DESC_LEN = 64;
+constexpr size_t CODE_BUF_SIZE = MAX_WORDS*64;
 struct State {
 	bool should_quit = false;
 	bool capslock = false;
@@ -29,9 +57,16 @@ struct State {
 	char line[MAX_LINE_LEN];
 	size_t stack_len = 0;
 	uint32_t stack[STACK_SIZE];
+	size_t words_len = 0;
+	Word words[MAX_WORDS];
+	size_t word_descs_len = 0;
+	char word_descs[MAX_WORDS * EST_DESC_LEN];
+	size_t code_len;
+	CodeElem code[CODE_BUF_SIZE];
 	bool has_inp_err = false;
 	uint32_t inp_err_until = 0;
 	InterpreterState interp;
+	CompiledState comp;
 
 	State(const State&) = delete;
 	State &operator=(const State&) = delete;
@@ -57,11 +92,41 @@ static inline uint32_t &stack_get(size_t nth = 1) {
 	// WARN: I assume here that the stack's length is >= nth, without verifying the fact!
 	return state.stack[state.stack_len - nth];
 }
-struct PrimitiveEntry {
-	const char *name;
-	const char *desc;
-	void(*func)();
-};
+
+void run_compiled() {
+	while (state.comp.idx < state.comp.len && state.comp.err == NULL) {
+		const CodeElem head = state.code[state.comp.pos + state.comp.idx];
+		if (head.fun == NULL) {
+			++state.comp.idx;
+			if (state.comp.idx >= state.comp.len) {
+				state.comp.err = "Error in compiled word: NULL pointer should be followed by literal value";
+				break;
+			}
+			if (state.stack_len >= STACK_SIZE) {
+				state.comp.err = "Error at number literal: stack length should be < STACK_SIZE";
+			}
+			const uint32_t lit = state.code[state.comp.pos + state.comp.idx].lit;
+			stack_push(lit);
+			++state.comp.idx;
+		} else {
+			head.fun();
+			++state.comp.idx;
+		}
+	}
+
+	if (state.comp.err) {
+		term::setcolor(vga::entry_color(
+			vga::Color::LightRed,
+			vga::Color::Black
+		));
+
+		puts(state.comp.err);
+		puts("@ compiled word");
+
+		term::resetcolor();
+	}
+}
+
 void get_word();
 #define error(msg) do { \
 		state.interp.err = msg; \
@@ -265,6 +330,8 @@ const PrimitiveEntry primitives[] = {
 	{ NULL, NULL, NULL },
 };
 constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives) - 1;
+#undef error_fun
+#undef error
 
 void input_key(ps2::Key, char ch, bool capitalise) {
 	if (state.line_len == MAX_LINE_LEN) {
@@ -339,29 +406,55 @@ void interpret_line() {
 			}
 		}
 
-		if (!was_primitive) {
-			bool is_number = true;
-			uint32_t number = 0;
+		if (was_primitive) continue;
+
+		bool was_word = false;
+		for (size_t wi = 0; wi < state.words_len; ++wi) {
+			if (strlen(state.words[wi].name) != len) continue;
+
+			bool matches = true;
 			for (size_t i = 0; i < len; ++i) {
-				const char ch = state.line[word+i];
-				if (ch < '0' || ch > '9') {
-					is_number = false;
+				if (state.words[wi].name[i] != state.line[word+i]) {
+					matches = false;
 					break;
-				} else {
-					number *= 10;
-					number += ch - '0';
 				}
 			}
 
-			if (is_number) {
-				if (state.stack_len >= STACK_SIZE) {
-					state.interp.err = "Error at number literal: stack length should be < STACK_SIZE";
-				} else {
-					state.stack[state.stack_len++] = number;
-				}
-			} else {
-				state.interp.err = "Error: Undefined word";
+			if (matches) {
+				was_word = true;
+				state.comp = CompiledState{};
+				state.comp.pos = state.words[wi].code_pos;
+				state.comp.len = state.words[wi].code_len;
+				state.comp.idx = 0;
+				run_compiled();
+
+				break;
 			}
+		}
+
+		if (was_word) continue;
+
+		bool is_number = true;
+		uint32_t number = 0;
+		for (size_t i = 0; i < len; ++i) {
+			const char ch = state.line[word+i];
+			if (ch < '0' || ch > '9') {
+				is_number = false;
+				break;
+			} else {
+				number *= 10;
+				number += ch - '0';
+			}
+		}
+
+		if (is_number) {
+			if (state.stack_len >= STACK_SIZE) {
+				state.interp.err = "Error at number literal: stack length should be < STACK_SIZE";
+			} else {
+				state.stack[state.stack_len++] = number;
+			}
+		} else {
+			state.interp.err = "Error: Undefined word";
 		}
 	}
 
@@ -444,6 +537,11 @@ void main() {
 	term::go_to(0, 0);
 	puts("Enter `guide` for instructions on usage, or `exit` to exit the program.");
 	term::writestring("> ");
+
+	state.code[state.code_len++] = { .fun = primitives[11].func };
+	state.code[state.code_len++] = { .fun = primitives[4].func };
+	state.code[state.code_len++] = { .fun = primitives[14].func };
+	state.words[state.words_len++] = { "-", "a b -- a-b", 0, 3 };
 
 	while (!state.should_quit) {
 		while (!ps2::events.empty()) {
