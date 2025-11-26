@@ -1,7 +1,6 @@
 #include "apps/forth.hpp"
 
 #include <assert.h>
-#include <cstdint>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,6 +13,12 @@ namespace forth {
 
 namespace {
 
+struct InterpreterState {
+	size_t line_pos = 0;
+	size_t curr_word_pos = 0;
+	size_t curr_word_len = 0;
+};
+
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t STACK_SIZE = 1024;
 struct State {
@@ -25,6 +30,7 @@ struct State {
 	uint32_t stack[STACK_SIZE];
 	bool has_inp_err = false;
 	uint32_t inp_err_until = 0;
+	InterpreterState interp;
 
 	State(const State&) = delete;
 	State &operator=(const State&) = delete;
@@ -54,11 +60,35 @@ struct PrimitiveEntry {
 	const char *name;
 	void(*func)();
 };
+void get_word();
 const PrimitiveEntry primitives[] = {
 	{ "dup", []() {
 		assert(state.stack_len >= 1);
 		assert(state.stack_len < STACK_SIZE);
 		stack_push(stack_peek());
+	} },
+	{ "swap", []() {
+		assert(state.stack_len >= 2);
+		assert(state.stack_len < STACK_SIZE);
+		const uint32_t top = stack_pop();
+		const uint32_t under_top = stack_pop();
+		stack_push(top);
+		stack_push(under_top);
+	} },
+	{ "rot", []() {
+		// ( a b c -- b c a )
+		assert(state.stack_len >= 2);
+		assert(state.stack_len < STACK_SIZE);
+		const uint32_t c = stack_pop();
+		const uint32_t b = stack_pop();
+		const uint32_t a = stack_pop();
+		stack_push(b);
+		stack_push(c);
+		stack_push(a);
+	} },
+	{ "drop", []() {
+		assert(state.stack_len >= 1);
+		stack_pop();
 	} },
 	{ "inc", []() {
 		assert(state.stack_len >= 1);
@@ -67,6 +97,42 @@ const PrimitiveEntry primitives[] = {
 	{ "dec", []() {
 		assert(state.stack_len >= 1);
 		--stack_get();
+	} },
+	{ "shl", []() {
+		assert(state.stack_len >= 2);
+		const uint32_t top = stack_pop();
+		const uint32_t under_top = stack_pop();
+		stack_push(under_top << top);
+	} },
+	{ "shr", []() {
+		assert(state.stack_len >= 2);
+		const uint32_t top = stack_pop();
+		const uint32_t under_top = stack_pop();
+		stack_push(under_top >> top);
+	} },
+	{ "or", []() {
+		assert(state.stack_len >= 2);
+		stack_push(stack_pop() | stack_pop());
+	} },
+	{ "and", []() {
+		assert(state.stack_len >= 2);
+		stack_push(stack_pop() & stack_pop());
+	} },
+	{ "xor", []() {
+		assert(state.stack_len >= 2);
+		stack_push(stack_pop() ^ stack_pop());
+	} },
+	{ "not", []() {
+		assert(state.stack_len >= 1);
+		stack_push(~stack_pop());
+	} },
+	{ "true", []() {
+		assert(state.stack_len < STACK_SIZE);
+		stack_push(~0);
+	} },
+	{ "false", []() {
+		assert(state.stack_len < STACK_SIZE);
+		stack_push(0);
 	} },
 	{ "+", []() {
 		assert(state.stack_len >= 2);
@@ -94,6 +160,40 @@ const PrimitiveEntry primitives[] = {
 	} },
 	{ "quit", []() {
 		state.should_quit = true;
+	} },
+	{ "hex", []() {
+		assert(state.stack_len < STACK_SIZE);
+		get_word();
+		assert(state.interp.curr_word_len != 0);
+		assert(state.interp.curr_word_len <= 8);
+		uint32_t num = 0;
+		for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
+			const char ch = state.line[state.interp.curr_word_pos+i];
+			assert(('0' <= ch && ch <= '9') || ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z'));
+			num <<= 4;
+			if ('0' <= ch && ch <= '9') {
+				num |= ch-'0';
+			} else if ('a' <= ch && ch <= 'z') {
+				num |= ch-'a';
+			} else {
+				num |= ch-'A';
+			}
+		}
+		stack_push(num);
+	} },
+	{ "'", []() {
+		assert(state.stack_len < STACK_SIZE);
+		get_word();
+		assert(state.interp.curr_word_len != 0);
+		assert(state.interp.curr_word_len <= 4);
+		uint32_t num = 0;
+		size_t i = state.interp.curr_word_len;
+		while (i --> 0) {
+			const char ch = state.line[state.interp.curr_word_pos+i];
+			num <<= 8;
+			num |= *(const uint8_t*)&ch;
+		}
+		stack_push(num);
 	} },
 };
 constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives);
@@ -124,28 +224,40 @@ void input_key(ps2::Key, char ch, bool capitalise) {
 	if (state.line_len == MAX_LINE_LEN) term::cursor::disable();
 }
 
-void interpret_line() {
-	size_t word_start = 0;
+void get_word() {
+	size_t &start = state.interp.line_pos;
 	size_t word_end = 0;
 
-	while (word_start < state.line_len) {
-		while (word_start < state.line_len && state.line[word_start] == ' ') {
-			++word_start;
-		}
-		word_end = word_start;
-		while (word_end < state.line_len && state.line[word_end] != ' ') {
-			++word_end;
-		}
+	while (start < state.line_len && state.line[start] == ' ') {
+		++start;
+	}
+	word_end = start;
+	while (word_end < state.line_len && state.line[word_end] != ' ') {
+		++word_end;
+	}
 
-		if (word_start == word_end) break;
+	state.interp.curr_word_len = word_end - start;
+	state.interp.curr_word_pos = start;
+	start += state.interp.curr_word_len;
+}
+
+void interpret_line() {
+	state.interp = {};
+
+	size_t &word = state.interp.curr_word_pos;
+	size_t &len = state.interp.curr_word_len;
+
+	while (word < state.line_len) {
+		get_word();
+		if (len == 0) break;
 
 		bool was_primitive = false;
 		for (size_t pi = 0; pi < primitives_len; ++pi) {
-			if (strlen(primitives[pi].name) != word_end-word_start) continue;
+			if (strlen(primitives[pi].name) != len) continue;
 
 			bool matches = true;
-			for (size_t i = 0; i < word_end-word_start; ++i) {
-				if (primitives[pi].name[i] != state.line[word_start+i]) {
+			for (size_t i = 0; i < len; ++i) {
+				if (primitives[pi].name[i] != state.line[word+i]) {
 					matches = false;
 					break;
 				}
@@ -162,8 +274,8 @@ void interpret_line() {
 		if (!was_primitive) {
 			bool is_number = true;
 			uint32_t number = 0;
-			for (size_t i = 0; i < word_end-word_start; ++i) {
-				const char ch = state.line[word_start+i];
+			for (size_t i = 0; i < len; ++i) {
+				const char ch = state.line[word+i];
 				if (ch < '0' || ch > '9') {
 					is_number = false;
 					break;
@@ -180,8 +292,6 @@ void interpret_line() {
 				assert(false && "Err: Undefined word");
 			}
 		}
-
-		word_start = word_end;
 	}
 
 	putchar('\n');
