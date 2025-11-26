@@ -72,6 +72,8 @@ $CC $CFLAGS -c $SRCDIR/apps/snake.cpp -o $BUILDDIR/apps/snake.o
 OBJS="$OBJS $BUILDDIR/apps/snake.o"
 $CC $CFLAGS -c $SRCDIR/apps/character_map.cpp -o $BUILDDIR/apps/character_map.o
 OBJS="$OBJS $BUILDDIR/apps/character_map.o"
+$CC $CFLAGS -c $SRCDIR/apps/forth.cpp -o $BUILDDIR/apps/forth.o
+OBJS="$OBJS $BUILDDIR/apps/forth.o"
 
 mkdir -p $BUILDDIR/sdk
 
