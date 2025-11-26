@@ -76,6 +76,15 @@ const PrimitiveEntry primitives[] = {
 		assert(state.stack_len >= 1);
 		printf("%d ", reinterpret_cast<uint32_t>(stack_pop()));
 	} },
+	{ "pstr", []() {
+		assert(state.stack_len >= 1);
+		const uint32_t str_raw = stack_pop();
+		const char *str = (char*)&str_raw;
+		for (size_t i = 0; i < 4; ++i) {
+			if (str[i] == 0) break;
+			putchar(str[i]);
+		}
+	} },
 	{ "stack_len", []() {
 		assert(state.stack_len < STACK_SIZE);
 		stack_push(state.stack_len);
