@@ -59,6 +59,7 @@ static inline uint32_t &stack_get(size_t nth = 1) {
 }
 struct PrimitiveEntry {
 	const char *name;
+	const char *desc;
 	void(*func)();
 };
 void get_word();
@@ -73,20 +74,19 @@ void get_word();
 #define check_stack_len_lt(fun, expr) if (state.stack_len >= (expr)) error_fun(fun, "stack length should be < " #expr)
 #define check_stack_len_ge(fun, expr) if (state.stack_len < (expr)) error_fun(fun, "stack length should be >= " #expr)
 const PrimitiveEntry primitives[] = {
-	{ "dup", []() {
+	{ "dup", "a -- a a", []() {
 		check_stack_len_ge("dup", 1);
 		check_stack_len_lt("dup", STACK_SIZE);
 		stack_push(stack_peek());
 	} },
-	{ "swap", []() {
+	{ "swap", "a b -- b a", []() {
 		check_stack_len_ge("swap", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
 		stack_push(top);
 		stack_push(under_top);
 	} },
-	{ "rot", []() {
-		// ( a b c -- b c a )
+	{ "rot", "a b c -- b c a", []() {
 		check_stack_len_ge("rot", 3);
 		const uint32_t c = stack_pop();
 		const uint32_t b = stack_pop();
@@ -95,63 +95,63 @@ const PrimitiveEntry primitives[] = {
 		stack_push(c);
 		stack_push(a);
 	} },
-	{ "drop", []() {
+	{ "drop", "a --", []() {
 		check_stack_len_ge("drop", 1);
 		stack_pop();
 	} },
-	{ "inc", []() {
+	{ "inc", "a -- a+1", []() {
 		check_stack_len_ge("inc", 1);
 		++stack_get();
 	} },
-	{ "dec", []() {
+	{ "dec", "a -- a-1", []() {
 		check_stack_len_ge("dec", 1);
 		--stack_get();
 	} },
-	{ "shl", []() {
+	{ "shl", "a b -- a<<b", []() {
 		check_stack_len_ge("shl", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
 		stack_push(under_top << top);
 	} },
-	{ "shr", []() {
+	{ "shr", "a b -- a>>b", []() {
 		check_stack_len_ge("shr", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
 		stack_push(under_top >> top);
 	} },
-	{ "or", []() {
+	{ "or", "a b -- a|b", []() {
 		check_stack_len_ge("or", 2);
 		stack_push(stack_pop() | stack_pop());
 	} },
-	{ "and", []() {
+	{ "and", "a b -- a&b", []() {
 		check_stack_len_ge("and", 2);
 		stack_push(stack_pop() & stack_pop());
 	} },
-	{ "xor", []() {
+	{ "xor", "a b -- a^b", []() {
 		check_stack_len_ge("xor", 2);
 		stack_push(stack_pop() ^ stack_pop());
 	} },
-	{ "not", []() {
+	{ "not", "a -- ~a", []() {
 		check_stack_len_ge("not", 1);
 		stack_push(~stack_pop());
 	} },
-	{ "true", []() {
+	{ "true", "-- -1", []() {
 		check_stack_len_lt("true", STACK_SIZE);
 		stack_push(~0);
 	} },
-	{ "false", []() {
+	{ "false", "-- 0", []() {
 		check_stack_len_lt("false", STACK_SIZE);
 		stack_push(0);
 	} },
-	{ "+", []() {
+	{ "+", "a b -- a+b", []() {
 		check_stack_len_ge("+", 2);
 		stack_push(stack_pop() + stack_pop());
 	} },
-	{ "print", []() {
+	{ "print", "a -- ; prints top element of stack as a signed number", []() {
 		check_stack_len_ge("print", 1);
 		printf("%d ", reinterpret_cast<uint32_t>(stack_pop()));
 	} },
-	{ "pstr", []() {
+	{ "pstr", "a -- ; prints top element as string of at most four characters", []() {
 		check_stack_len_ge("pstr", 1);
 		const uint32_t str_raw = stack_pop();
 		const char *str = (char*)&str_raw;
@@ -160,17 +160,17 @@ const PrimitiveEntry primitives[] = {
 			putchar(str[i]);
 		}
 	} },
-	{ "stack_len", []() {
+	{ "stack_len", "-- a ; pushes length of stack", []() {
 		check_stack_len_lt("stack_len", STACK_SIZE);
 		stack_push(state.stack_len);
 	} },
-	{ "exit", []() {
+	{ "exit", "-- ; exits the forth interpreter", []() {
 		state.should_quit = true;
 	} },
-	{ "quit", []() {
+	{ "quit", "-- ; exits the forth interpreter", []() {
 		state.should_quit = true;
 	} },
-	{ "hex", []() {
+	{ "hex", "-- a ; interprets next word as hex number and pushes it", []() {
 		check_stack_len_lt("hex", STACK_SIZE);
 		get_word();
 		if (state.interp.curr_word_len == 0) {
@@ -196,7 +196,7 @@ const PrimitiveEntry primitives[] = {
 		}
 		stack_push(num);
 	} },
-	{ "'", []() {
+	{ "'", "-- a ; interprets next word as short (<= 4 long) string and pushes it", []() {
 		check_stack_len_lt("'", STACK_SIZE);
 		get_word();
 		if (state.interp.curr_word_len == 0) {
@@ -214,8 +214,57 @@ const PrimitiveEntry primitives[] = {
 		}
 		stack_push(num);
 	} },
+	{ "help", "-- ; prints help text for the next word", []() {
+		get_word();
+		if (state.interp.curr_word_len == 0) {
+			error_fun("help", "expected following word");
+		}
+
+		bool was_primitive = false;
+		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
+			if (strlen(primitives[pi].name) != state.interp.curr_word_len) continue;
+
+			bool matches = true;
+			for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
+				if (primitives[pi].name[i] != state.line[state.interp.curr_word_pos + i]) {
+					matches = false;
+					break;
+				}
+			}
+
+			if (matches) {
+				was_primitive = true;
+				printf("`%s`: %s", primitives[pi].name, primitives[pi].desc);
+
+				break;
+			}
+		}
+
+		if (!was_primitive) {
+			error_fun("help", "Couldn't find specified word");
+		}
+	} },
+	{ "primitives", "-- ; prints a list of all available primitive words", []() {
+		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
+			if (pi) putchar(' ');
+			term::writestring(primitives[pi].name);
+		}
+		putchar('\n');
+	} },
+	{ "guide", "-- ; prints usage guide for the forth interpreter", []() {
+		const char *guide_text =
+			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
+			"Data consists of 32-bit integers stored on a stack.\n"
+			"There are two kinds of words: Primitives, which perform some operation, and numbers, which pushes a number to the stack.\n"
+			"To get a list of available primitives, enter `primitives` into the prompt.\n"
+			"To get more information on a given primitive, enter `help` followed by its name. Try `help help` or `help guide`.\n"
+			"A simple hello world program is `' hell pstr ' o pstr 32 pstr ' worl pstr ' d! pstr`. See if you can figure out how it works.\n"
+		;
+		term::writestring(guide_text);
+	} },
+	{ NULL, NULL, NULL },
 };
-constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives);
+constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives) - 1;
 
 void input_key(ps2::Key, char ch, bool capitalise) {
 	if (state.line_len == MAX_LINE_LEN) {
@@ -393,6 +442,7 @@ void main() {
 
 	term::clear();
 	term::go_to(0, 0);
+	puts("Enter `guide` for instructions on usage, or `exit` to exit the program.");
 	term::writestring("> ");
 
 	while (!state.should_quit) {
