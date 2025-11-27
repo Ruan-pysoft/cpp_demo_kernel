@@ -215,10 +215,12 @@ const PrimitiveEntry primitives[] = {
 		check_stack_len_ge("pstr", 1);
 		const uint32_t str_raw = stack_pop();
 		const char *str = (char*)&str_raw;
-		for (size_t i = 0; i < 4; ++i) {
-			if (str[i] == 0) break;
-			putchar(str[i]);
-		}
+		term::writestring(str);
+	} },
+	{ "print_raw", "a -- ; interprets top elemt of stack as a character pointer and prints it as a c-string", []() {
+		check_stack_len_ge("print_raw", 1);
+		const char *str = reinterpret_cast<const char*>(stack_pop());
+		term::writestring(str);
 	} },
 	{ "stack_len", "-- a ; pushes length of stack", []() {
 		check_stack_len_lt("stack_len", STACK_SIZE);
@@ -254,8 +256,20 @@ const PrimitiveEntry primitives[] = {
 				num |= ch-'A';
 			}
 		}
-		stack_push(num);
-	} },
+		if (state.compiling) {
+			if (state.code_len + 2 > CODE_BUF_SIZE) {
+				error_fun("hex", "not enough space to generate code for user word");
+			}
+			state.code[state.code_len++] = CodeElem {
+				.prefix = CodeElemPrefix::Literal,
+			};
+			state.code[state.code_len++] = CodeElem {
+				.lit = num,
+			};
+		} else {
+			stack_push(num);
+		}
+	}, true },
 	{ "'", "-- a ; interprets next word as short (<= 4 long) string and pushes it", []() {
 		check_stack_len_lt("'", STACK_SIZE);
 		get_word();
@@ -272,8 +286,20 @@ const PrimitiveEntry primitives[] = {
 			num <<= 8;
 			num |= *(const uint8_t*)&ch;
 		}
-		stack_push(num);
-	} },
+		if (state.compiling) {
+			if (state.code_len + 2 > CODE_BUF_SIZE) {
+				error_fun("'", "not enough space to generate code for user word");
+			}
+			state.code[state.code_len++] = CodeElem {
+				.prefix = CodeElemPrefix::Literal,
+			};
+			state.code[state.code_len++] = CodeElem {
+				.lit = num,
+			};
+		} else {
+			stack_push(num);
+		}
+	}, true },
 	{ "help", "-- ; prints help text for the next word", []() {
 		get_word();
 		if (state.interp.word.len == 0) {
@@ -284,7 +310,24 @@ const PrimitiveEntry primitives[] = {
 			&state.line[state.interp.word.pos],
 			state.interp.word.len
 		);
-		if (word_idx != -1) {
+		if (word_idx != -1 && state.compiling) {
+			if (state.code_len + 3 > CODE_BUF_SIZE) {
+				error_fun("help", "not enough space to generate code for user word");
+			}
+
+			state.code[state.code_len++] = CodeElem {
+				.prefix = CodeElemPrefix::Literal,
+			};
+			state.code[state.code_len++] = CodeElem {
+				.lit = reinterpret_cast<uint32_t>(state.words[word_idx].desc),
+			};
+			const int32_t print_raw = search_primitive("print_raw", 9);
+			state.code[state.code_len++] = CodeElem {
+				.idx = *(uint32_t*)&print_raw,
+			};
+
+			return;
+		} else if (word_idx != -1) {
 			printf(
 				"`%s`: %s",
 				state.words[word_idx].name,
@@ -298,7 +341,24 @@ const PrimitiveEntry primitives[] = {
 			&state.line[state.interp.word.pos],
 			state.interp.word.len
 		);
-		if (prim_idx != -1) {
+		if (prim_idx != -1 && state.compiling) {
+			if (state.code_len + 3 > CODE_BUF_SIZE) {
+				error_fun("help", "not enough space to generate code for user word");
+			}
+
+			state.code[state.code_len++] = CodeElem {
+				.prefix = CodeElemPrefix::Literal,
+			};
+			state.code[state.code_len++] = CodeElem {
+				.lit = reinterpret_cast<uint32_t>(primitives[prim_idx].desc),
+			};
+			const int32_t print_raw = search_primitive("print_raw", 9);
+			state.code[state.code_len++] = CodeElem {
+				.idx = *(uint32_t*)&print_raw,
+			};
+
+			return;
+		} else if (prim_idx == -1) {
 			printf(
 				"`%s`: %s",
 				primitives[prim_idx].name,
@@ -309,7 +369,7 @@ const PrimitiveEntry primitives[] = {
 		}
 
 		error_fun("help", "Couldn't find specified word");
-	} },
+	}, true },
 	{ "primitives", "-- ; prints a list of all available primitive words", []() {
 		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
 			if (pi) putchar(' ');
@@ -329,6 +389,12 @@ const PrimitiveEntry primitives[] = {
 		get_word();
 		if (state.interp.word.len == 0) {
 			error_fun("def", "expected following word");
+		}
+
+		if (state.compiling) {
+			// TODO: support this
+			// I think I should add a hidden flag + an extra primitive?
+			error_fun("def", "printing the definition of a word from within a compiled word is currently not supported");
 		}
 
 		const int32_t word_idx = search_word(
@@ -373,7 +439,7 @@ const PrimitiveEntry primitives[] = {
 		}
 
 		error_fun("def", "Couldn't find specified word");
-	} },
+	}, true },
 	{ "guide", "-- ; prints usage guide for the forth interpreter", []() {
 		const char *guide_text =
 			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
@@ -743,6 +809,7 @@ void interpret_line() {
 		}
 
 		state.interp.err_handled = true;
+		state.compiling = false;
 	} else {
 		putchar('\n');
 	}
