@@ -141,6 +141,7 @@ int32_t search_word(const char *name, size_t name_len);
 	} while (0)
 #define check_stack_len_lt(fun, expr) if (state.stack_len >= (expr)) error_fun(fun, "stack length should be < " #expr)
 #define check_stack_len_ge(fun, expr) if (state.stack_len < (expr)) error_fun(fun, "stack length should be >= " #expr)
+#define check_stack_len_cap(fun, expr) if (state.stack_len + (expr) >= STACK_SIZE) error_fun(fun, "stack capacity should be at least " #expr)
 #define check_code_len(fun, len) if (state.code_len + 2 > CODE_BUF_SIZE) error_fun(fun, "not enough space to generate code for user word")
 RawFunction print_raw = { "<internal:print_raw>", []() {
 	check_stack_len_ge("<internal:print_raw>", 1);
@@ -228,6 +229,18 @@ const PrimitiveEntry primitives[] = {
 	{ "drop", "a --", []() {
 		check_stack_len_ge("drop", 1);
 		stack_pop();
+	} },
+	{ "rev_n", "... n -- ... ; reverse the top n elements", []() {
+		check_stack_len_ge("rot_n", 1);
+		const uint32_t n = stack_pop();
+		check_stack_len_ge("rot_n", n);
+		for (size_t i = 0; i < n/2; ++i) {
+			const size_t fst_ix = i+1;
+			const size_t scd_ix = n-i;
+			const uint32_t tmp = stack_peek(fst_ix);
+			stack_get(fst_ix) = stack_peek(scd_ix);
+			stack_get(scd_ix) = tmp;
+		}
 	} },
 
 	/* ARYTHMETIC OPERATIONS */
@@ -392,6 +405,55 @@ const PrimitiveEntry primitives[] = {
 		const uint32_t str_raw = stack_pop();
 		const char *str = (char*)&str_raw;
 		term::writestring(str);
+	} },
+
+	/* STRINGS */
+	{ "\"", "-- ... n ; pushes a string to the top of the stack (data then length)", []() {
+		if (state.compiling) {
+			assert(false && "TODO");
+		}
+
+		WordPos &word = state.interp.word;
+
+		size_t start = 0;
+		size_t end = 0;
+		get_word();
+		start = word.pos;
+
+		while (word.len != 0 && !(word.len == 1 && state.line[word.pos] == '"')) {
+			end = word.pos + word.len;
+			get_word();
+		}
+
+		if (word.len == 0) {
+			error_fun("\"", "expected closing \" for string");
+		}
+
+		const size_t len = end - start;
+		const size_t words = len/4 + !!(len&3);
+
+		check_stack_len_cap("\"", words+1);
+
+		for (size_t i = 0; i < words; ++i) {
+			uint32_t num = 0;
+			size_t j = i*4 + 4;
+			if (j > len) j = len;
+			while (j --> i*4) {
+				const char ch = state.line[start + j];
+				num <<= 8;
+				num |= *(const uint8_t*)&ch;
+			}
+			stack_push(num);
+		}
+		stack_push(words);
+	}, true },
+	{ "print_string", "... n -- ; prints a string of length n", []() {
+		check_stack_len_ge("print_string", 1);
+		const uint32_t n = stack_pop();
+
+		check_stack_len_ge("print_string", n);
+		term::writestring((const char*)&state.stack[state.stack_len - n]);
+		state.stack_len -= n;
 	} },
 
 	/* SYSTEM OPERATION */
