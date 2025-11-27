@@ -357,6 +357,14 @@ const PrimitiveEntry primitives[] = {
 		}
 		putchar('\n');
 	} },
+	{ "words", "-- ; prints a list of all user-defined words", []() {
+		size_t wi = state.words_len;
+		while (wi --> 0) {
+			term::writestring(state.words[wi].name);
+			if (wi) putchar(' ');
+		}
+		putchar('\n');
+	} },
 	{ "guide", "-- ; prints usage guide for the forth interpreter", []() {
 		const char *guide_text =
 			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
