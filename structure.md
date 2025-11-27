@@ -31,6 +31,10 @@ PS2 keyboard interface + initialisation: `src/ps2.cpp` + `include/ps2.hpp`
 
 "Standard library" implementation: `src/libk/` + `include/libk/`
 
+Application programming support libraries: `src/libk/sdk/` + `include/libk/sdk/`
+
+Applications: `src/apps/`
+
 C elements of the standard library is implemented such that each stdlib function has its own file under a folder corresponding to its header.
 
 Currently implemented:
@@ -39,3 +43,17 @@ Currently implemented:
  - `stdlib.h`: memory allocation + freeing, as well as an abort function
  - `string.h`: some string handling/memory manipulation functions
  - `sys/cdefs.h`: tbh I have no idea
+
+The following application support libraries currently exist:
+ - `eventloop.hpp`: Support for three different types of event loops. An event loop object automatically handles keyboard input while sleeping for the next frame, since there is no underlying operating system to do so.
+ - `random.hpp`: Defines a random number generation API and defines a random number generator. Possibly to be expanded in the future.
+ - `terminal.hpp`: An API to change the terminal's colours and to automatically switch back at the end of the code block via RAII.
+
+The following applications are currently implemented:
+ - `main_menu.cpp`: The main menu the user is greeted with when launching the kernel, works as an app launcher of sorts to run the other applications. Some applications are hidden in an "advanced" menu, accessed by pressing the colon (`:`) key.
+ - `snake.cpp`: A simple snake game.
+ - `forth.cpp`: An implementation of a [forth](https://en.wikipedia.org/wiki/Forth_(programming_language\)) language.
+ - `character_map.cpp`: A program which displays all the characters supported by the VGA textmode driver, and allows selecting a character to see its character code.
+ - `queued_demo.cpp`: A short proof-of-concept/reference application using a QueuedEventLoop.
+ - `callback_demo.cpp`: A short proof-of-concept/reference application using a CallbackEventLoop.
+ - `ignore_demo.cpp`: A short proof-of-concept/reference application using a IgnoreEventLoop.
