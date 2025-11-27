@@ -28,13 +28,17 @@ constexpr struct MenuEntry {
 	{ "Snake game", snake::main },
 	{ "FORTH interpreter", forth::main },
 	{ "Display character map", character_map::main },
-	{ "EventLoop Demo: QueuedEventLoop", queued_demo::main },
-	{ "EventLoop Demo: CallbackEventLoop", callback_demo::main },
-	{ "EventLoop Demo: IgnoreEventLoop", ignore_demo::main },
 };
 constexpr size_t menu_entries_len = sizeof(menu_entries)/sizeof(*menu_entries);
+constexpr MenuEntry hidden_menu_entries[] = {
+	{ "DEBUG: QueuedEventLoop Demo", queued_demo::main },
+	{ "DEBUG: CallbackEventLoop Demo", callback_demo::main },
+	{ "DEBUG: IgnoreEventLoop Demo", ignore_demo::main },
+};
+constexpr size_t hidden_menu_entries_len = sizeof(hidden_menu_entries)/sizeof(*hidden_menu_entries);
 
 struct State {
+	bool show_hidden = false;
 	size_t index = 0;
 
 	void redraw() {
@@ -45,15 +49,27 @@ struct State {
 		clear();
 		go_to(0, 0);
 
-		const char *title = "AVAILABLE APPLICATIONS";
-		const size_t title_len = strlen(title);
-		const size_t title_offset = (vga::WIDTH - title_len) / 2;
+		if (show_hidden) {
+			const char *title = "AVAILABLE APPLICATIONS - ADVANCED";
+			const size_t title_len = strlen(title);
+			const size_t title_offset = (vga::WIDTH - title_len) / 2;
 
-		go_to(title_offset, 1);
-		sdk::colors::with(
-			vga::Color::Black, vga::Color::LightGrey,
-			writestring, title
-		);
+			go_to(title_offset, 1);
+			sdk::colors::with(
+				vga::Color::Black, vga::Color::LightRed,
+				writestring, title
+			);
+		} else {
+			const char *title = "AVAILABLE APPLICATIONS";
+			const size_t title_len = strlen(title);
+			const size_t title_offset = (vga::WIDTH - title_len) / 2;
+
+			go_to(title_offset, 1);
+			sdk::colors::with(
+				vga::Color::Black, vga::Color::LightGrey,
+				writestring, title
+			);
+		}
 
 		for (size_t i = 0; i < menu_entries_len; ++i) {
 			go_to(1, 3 + i);
@@ -67,6 +83,22 @@ struct State {
 
 			go_to(3, 3 + i);
 			writestring(menu_entries[i].name);
+		}
+
+		if (show_hidden) {
+			for (size_t i = 0; i < hidden_menu_entries_len; ++i) {
+				auto colors = sdk::ColorSwitch(vga::Color::LightCyan);
+
+				go_to(1, 3 + menu_entries_len + i);
+				putchar('-');
+
+				if (menu_entries_len + i == index) {
+					colors.set(vga::Color::Black, vga::Color::LightBlue);
+				}
+
+				go_to(3, 3 + menu_entries_len + i);
+				writestring(hidden_menu_entries[i].name);
+			}
 		}
 	}
 
@@ -93,7 +125,9 @@ struct State {
 			case ps2::KEY_K:
 			case ps2::KEY_H: {
 				if (index > 0) --index;
-				else index = menu_entries_len-1;
+				else if (show_hidden) {
+					index = menu_entries_len+hidden_menu_entries_len-1;
+				} else index = menu_entries_len-1;
 			} break;
 			case ps2::KEY_DOWN:
 			case ps2::KEY_RIGHT:
@@ -101,8 +135,11 @@ struct State {
 			case ps2::KEY_S:
 			case ps2::KEY_J:
 			case ps2::KEY_L: {
-				if (index < menu_entries_len-1) ++index;
-				else index = 0;
+				if (show_hidden && index < menu_entries_len+hidden_menu_entries_len+1) {
+					++index;
+				} else if (!show_hidden && index < menu_entries_len-1) {
+					++index;
+				} else index = 0;
 			} break;
 			case ps2::KEY_ENTER:
 			case ps2::KEY_SPACE: {
@@ -110,9 +147,20 @@ struct State {
 				resetcolor();
 				clear();
 				go_to(0, 0);
-				menu_entries[index].main();
+				if (index < menu_entries_len) {
+					menu_entries[index].main();
+				} else {
+					hidden_menu_entries[index - menu_entries_len].main();
+				}
 			} break;
 			default: break;
+			case ps2::KEY_COLON: {
+				show_hidden = !show_hidden;
+
+				if (!show_hidden && index > menu_entries_len) {
+					index = menu_entries_len-1;
+				}
+			} break;
 		}
 	}
 };
