@@ -76,6 +76,23 @@ void draw(State &state) {
 		}
 	}
 
+	const char *char_code_text = "Hex code of selected character is ";
+	const size_t char_code_len = strlen(char_code_text)+2;
+	const size_t char_code_offset = (vga::WIDTH - char_code_len)/2;
+
+	go_to(char_code_offset, 22);
+	writestring(char_code_text);
+	if ((state.pos>>4) < 0xA) {
+		putchar('0'+(state.pos>>4));
+	} else {
+		putchar('A'+(state.pos>>4)-10);
+	}
+	if ((state.pos&0xF) < 0xA) {
+		putchar('0'+(state.pos&0xF));
+	} else {
+		putchar('A'+(state.pos&0xF)-10);
+	}
+
 	const char *help_text = "Press ESC or Q to quit \xb3 Press : and then a letter to jump to that letter";
 	const size_t help_len = strlen(help_text);
 	const size_t help_offset = (vga::WIDTH - help_len)/2;
@@ -137,12 +154,14 @@ bool handle_keyevent(ps2::Event event, State &state) {
 				draw(state);
 			} break;
 			case KEY_LEFT: {
-				state.pos -= 0x01;
+				if ((state.pos&0xF) == 0x0) state.pos += 0x0F;
+				else state.pos -= 0x01;
 				state.search_mode = false;
 				draw(state);
 			} break;
 			case KEY_RIGHT: {
-				state.pos += 0x01;
+				if ((state.pos&0xF) == 0xF) state.pos -= 0xF;
+				else state.pos += 0x01;
 				state.search_mode = false;
 				draw(state);
 			} break;
