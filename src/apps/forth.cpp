@@ -365,6 +365,55 @@ const PrimitiveEntry primitives[] = {
 		}
 		putchar('\n');
 	} },
+	{ "def", "-- ; prints the definition of a given word", []() {
+		get_word();
+		if (state.interp.curr_word_len == 0) {
+			error_fun("def", "expected following word");
+		}
+
+		const int32_t word_idx = search_word(
+			&state.line[state.interp.curr_word_pos],
+			state.interp.curr_word_len
+		);
+		if (word_idx != -1) {
+			printf(
+				": %s ( %s )",
+				state.words[word_idx].name,
+				state.words[word_idx].desc
+			);
+			// no checking as to validity
+			for (size_t ci = state.words[word_idx].code_pos; ci < state.words[word_idx].code_pos + state.words[word_idx].code_len; ++ci) {
+				const CodeElem head = state.code[ci];
+				if (head.fun == NULL) {
+					++ci;
+					printf(" %u", state.code[ci].lit);
+				} else if (head.fun == run_word) {
+					++ci;
+					printf(" %s", state.words[state.code[ci].lit].name);
+				} else {
+					printf(" <built-in primitive>");
+				}
+			}
+			printf(" ;");
+
+			return;
+		}
+
+		const int32_t prim_idx = search_primative(
+			&state.line[state.interp.curr_word_pos],
+			state.interp.curr_word_len
+		);
+		if (prim_idx != -1) {
+			printf(
+				"<built-in primitive `%s`>",
+				primitives[prim_idx].name
+			);
+
+			return;
+		}
+
+		error_fun("def", "Couldn't find specified word");
+	} },
 	{ "guide", "-- ; prints usage guide for the forth interpreter", []() {
 		const char *guide_text =
 			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
