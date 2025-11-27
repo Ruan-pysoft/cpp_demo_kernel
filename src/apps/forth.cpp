@@ -169,6 +169,7 @@ RawFunction do_if = { "?", []() {
 	}
 } };
 const PrimitiveEntry primitives[] = {
+	/* STACK OPERATIONS */
 	{ ".", "-- ; shows the top 16 elements of the stack", []() {
 		if (state.stack_len == 0) { puts("empty."); return; }
 
@@ -178,6 +179,10 @@ const PrimitiveEntry primitives[] = {
 			printf("%d ", stack_peek(i));
 		}
 		putchar('\n');
+	} },
+	{ "stack_len", "-- a ; pushes length of stack", []() {
+		check_stack_len_lt("stack_len", STACK_SIZE);
+		stack_push(state.stack_len);
 	} },
 	{ "dup", "a -- a a", []() {
 		check_stack_len_ge("dup", 1);
@@ -200,10 +205,30 @@ const PrimitiveEntry primitives[] = {
 		stack_push(c);
 		stack_push(a);
 	} },
+	{ "unrot", "a b c -- c a b", []() {
+		check_stack_len_ge("rot", 3);
+		const uint32_t c = stack_pop();
+		const uint32_t b = stack_pop();
+		const uint32_t a = stack_pop();
+		stack_push(c);
+		stack_push(a);
+		stack_push(b);
+	} },
+	{ "rev", "a b c -- c b a", []() {
+		check_stack_len_ge("rot", 3);
+		const uint32_t c = stack_pop();
+		const uint32_t b = stack_pop();
+		const uint32_t a = stack_pop();
+		stack_push(c);
+		stack_push(b);
+		stack_push(a);
+	} },
 	{ "drop", "a --", []() {
 		check_stack_len_ge("drop", 1);
 		stack_pop();
 	} },
+
+	/* ARYTHMETIC OPERATIONS */
 	{ "inc", "a -- a+1", []() {
 		check_stack_len_ge("inc", 1);
 		++stack_get();
@@ -212,17 +237,41 @@ const PrimitiveEntry primitives[] = {
 		check_stack_len_ge("dec", 1);
 		--stack_get();
 	} },
+	{ "+", "a b -- a+b", []() {
+		check_stack_len_ge("+", 2);
+		stack_push(stack_pop() + stack_pop());
+	} },
+	{ "*", "a b -- a*b", []() {
+		check_stack_len_ge("*", 2);
+		stack_push(stack_pop() * stack_pop());
+	} },
+	{ "/", "a b -- a/b", []() {
+		check_stack_len_ge("/", 2);
+		const uint32_t b = stack_pop();
+		const uint32_t a = stack_pop();
+		stack_push(a / b);
+	} },
+
+	/* BITWISE OPERATIONS */
 	{ "shl", "a b -- a<<b", []() {
 		check_stack_len_ge("shl", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
-		stack_push(under_top << top);
+		if (top >= 32) {
+			stack_push(0);
+		} else {
+			stack_push(under_top << top);
+		}
 	} },
 	{ "shr", "a b -- a>>b", []() {
 		check_stack_len_ge("shr", 2);
 		const uint32_t top = stack_pop();
 		const uint32_t under_top = stack_pop();
-		stack_push(under_top >> top);
+		if (top >= 32) {
+			stack_push(0);
+		} else {
+			stack_push(under_top >> top);
+		}
 	} },
 	{ "or", "a b -- a|b", []() {
 		check_stack_len_ge("or", 2);
@@ -240,6 +289,8 @@ const PrimitiveEntry primitives[] = {
 		check_stack_len_ge("not", 1);
 		stack_push(~stack_pop());
 	} },
+
+	/* LITERALS */
 	{ "true", "-- -1", []() {
 		check_stack_len_lt("true", STACK_SIZE);
 		stack_push(~0);
@@ -247,30 +298,6 @@ const PrimitiveEntry primitives[] = {
 	{ "false", "-- 0", []() {
 		check_stack_len_lt("false", STACK_SIZE);
 		stack_push(0);
-	} },
-	{ "+", "a b -- a+b", []() {
-		check_stack_len_ge("+", 2);
-		stack_push(stack_pop() + stack_pop());
-	} },
-	{ "print", "a -- ; prints top element of stack as a signed number", []() {
-		check_stack_len_ge("print", 1);
-		printf("%d ", reinterpret_cast<uint32_t>(stack_pop()));
-	} },
-	{ "pstr", "a -- ; prints top element as string of at most four characters", []() {
-		check_stack_len_ge("pstr", 1);
-		const uint32_t str_raw = stack_pop();
-		const char *str = (char*)&str_raw;
-		term::writestring(str);
-	} },
-	{ "stack_len", "-- a ; pushes length of stack", []() {
-		check_stack_len_lt("stack_len", STACK_SIZE);
-		stack_push(state.stack_len);
-	} },
-	{ "exit", "-- ; exits the forth interpreter", []() {
-		state.should_quit = true;
-	} },
-	{ "quit", "-- ; exits the forth interpreter", []() {
-		state.should_quit = true;
 	} },
 	{ "hex", "-- a ; interprets next word as hex number and pushes it", []() {
 		check_stack_len_lt("hex", STACK_SIZE);
@@ -338,6 +365,44 @@ const PrimitiveEntry primitives[] = {
 			stack_push(num);
 		}
 	}, true },
+
+	/* OUTPUT OPERATIONS */
+	{ "print", "a -- ; prints top element of stack as a signed number", []() {
+		check_stack_len_ge("print", 1);
+		printf("%d ", reinterpret_cast<uint32_t>(stack_pop()));
+	} },
+	{ "pstr", "a -- ; prints top element as string of at most four characters", []() {
+		check_stack_len_ge("pstr", 1);
+		const uint32_t str_raw = stack_pop();
+		const char *str = (char*)&str_raw;
+		term::writestring(str);
+	} },
+
+	/* SYSTEM OPERATION */
+	{ "exit", "-- ; exits the forth interpreter", []() {
+		state.should_quit = true;
+	} },
+	{ "quit", "-- ; exits the forth interpreter", []() {
+		state.should_quit = true;
+	} },
+	// TODO: sleep functions perhaps, clearing the keyboard buffer when done? Essentially ignoring all user input while sleeping
+
+	/* DOCUMENTATION / HELP / INSPECTION */
+	{ "primitives", "-- ; prints a list of all available primitive words", []() {
+		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
+			if (pi) putchar(' ');
+			term::writestring(primitives[pi].name);
+		}
+		putchar('\n');
+	} },
+	{ "words", "-- ; prints a list of all user-defined words", []() {
+		size_t wi = state.words_len;
+		while (wi --> 0) {
+			term::writestring(state.words[wi].name);
+			if (wi) putchar(' ');
+		}
+		putchar('\n');
+	} },
 	{ "help", "-- ; prints help text for the next word", []() {
 		get_word();
 		if (state.interp.word.len == 0) {
@@ -408,21 +473,6 @@ const PrimitiveEntry primitives[] = {
 
 		error_fun("help", "Couldn't find specified word");
 	}, true },
-	{ "primitives", "-- ; prints a list of all available primitive words", []() {
-		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
-			if (pi) putchar(' ');
-			term::writestring(primitives[pi].name);
-		}
-		putchar('\n');
-	} },
-	{ "words", "-- ; prints a list of all user-defined words", []() {
-		size_t wi = state.words_len;
-		while (wi --> 0) {
-			term::writestring(state.words[wi].name);
-			if (wi) putchar(' ');
-		}
-		putchar('\n');
-	} },
 	{ "def", "-- ; prints the definition of a given word", []() {
 		get_word();
 		if (state.interp.word.len == 0) {
@@ -567,6 +617,8 @@ const PrimitiveEntry primitives[] = {
 			}
 		}
 	} },
+
+	/* INTERNALS / SYNTAX */
 	{ "(", "-- ; begins a comment", []() {
 		int nesting = 1;
 
