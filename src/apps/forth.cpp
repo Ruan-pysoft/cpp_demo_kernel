@@ -338,7 +338,29 @@ const PrimitiveEntry primitives[] = {
 			}
 		}
 
-		if (!was_primitive) {
+		if (was_primitive) return;
+
+		bool was_word = false;
+		for (size_t wi = 0; wi < state.words_len; ++wi) {
+			if (strlen(state.words[wi].name) != state.interp.curr_word_len) continue;
+
+			bool matches = true;
+			for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
+				if (state.words[wi].name[i] != state.line[state.interp.curr_word_pos + i]) {
+					matches = false;
+					break;
+				}
+			}
+
+			if (matches) {
+				was_word = true;
+				printf("`%s`: %s", state.words[wi].name, state.words[wi].desc);
+
+				break;
+			}
+		}
+
+		if (!was_word) {
 			error_fun("help", "Couldn't find specified word");
 		}
 	} },
