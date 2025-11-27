@@ -329,7 +329,7 @@ const PrimitiveEntry primitives[] = {
 		stack_push(0);
 	} },
 	{ "hex", "-- a ; interprets next word as hex number and pushes it", []() {
-		check_stack_len_lt("hex", STACK_SIZE);
+		if (!state.compiling) check_stack_len_lt("hex", STACK_SIZE);
 		get_word();
 		if (state.interp.word.len == 0) {
 			error_fun("hex", "expected a hexadecimal number, didn't get anything");
@@ -366,7 +366,7 @@ const PrimitiveEntry primitives[] = {
 		}
 	}, true },
 	{ "'", "-- a ; interprets next word as short (<= 4 long) string and pushes it", []() {
-		check_stack_len_lt("'", STACK_SIZE);
+		if (!state.compiling) check_stack_len_lt("'", STACK_SIZE);
 		get_word();
 		if (state.interp.word.len == 0) {
 			error_fun("'", "expected a short string, didn't get anything");
@@ -409,10 +409,6 @@ const PrimitiveEntry primitives[] = {
 
 	/* STRINGS */
 	{ "\"", "-- ... n ; pushes a string to the top of the stack (data then length)", []() {
-		if (state.compiling) {
-			assert(false && "TODO");
-		}
-
 		WordPos &word = state.interp.word;
 
 		size_t start = 0;
@@ -432,7 +428,11 @@ const PrimitiveEntry primitives[] = {
 		const size_t len = end - start;
 		const size_t words = len/4 + !!(len&3);
 
-		check_stack_len_cap("\"", words+1);
+		if (state.compiling) {
+			check_code_len("\"", (words+1)*2);
+		} else {
+			check_stack_len_cap("\"", words+1);
+		}
 
 		for (size_t i = 0; i < words; ++i) {
 			uint32_t num = 0;
@@ -443,9 +443,27 @@ const PrimitiveEntry primitives[] = {
 				num <<= 8;
 				num |= *(const uint8_t*)&ch;
 			}
-			stack_push(num);
+			if (state.compiling) {
+				state.code[state.code_len++] = CodeElem {
+					.prefix = CodeElemPrefix::Literal,
+				};
+				state.code[state.code_len++] = CodeElem {
+					.lit = num,
+				};
+			} else {
+				stack_push(num);
+			}
 		}
-		stack_push(words);
+		if (state.compiling) {
+			state.code[state.code_len++] = CodeElem {
+				.prefix = CodeElemPrefix::Literal,
+			};
+			state.code[state.code_len++] = CodeElem {
+				.lit = words,
+			};
+		} else {
+			stack_push(words);
+		}
 	}, true },
 	{ "print_string", "... n -- ; prints a string of length n", []() {
 		check_stack_len_ge("print_string", 1);
