@@ -73,6 +73,8 @@ union CodeElem {
 static_assert(sizeof(CodeElem) == sizeof(uint32_t), "Expected union of 32-bit values to be 32 bits");
 
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
+constexpr size_t LINE_BUF_LEN = 128; // in order to support more complex pre-defined words
+static_assert(LINE_BUF_LEN >= MAX_LINE_LEN, "a line should be able to contain at least MAX_LINE_LEN characters");
 constexpr size_t STACK_SIZE = 1024;
 constexpr size_t MAX_WORDS = 1024;
 constexpr size_t EST_DESC_LEN = 64;
@@ -84,7 +86,7 @@ struct State {
 	bool should_quit = false;
 	bool capslock = false;
 	size_t line_len = 0;
-	char line[MAX_LINE_LEN];
+	char line[LINE_BUF_LEN];
 	size_t stack_len = 0;
 	uint32_t stack[STACK_SIZE];
 	size_t words_len = 0;
@@ -288,6 +290,20 @@ const PrimitiveEntry primitives[] = {
 	{ "not", "a -- ~a", []() {
 		check_stack_len_ge("not", 1);
 		stack_push(~stack_pop());
+	} },
+
+	/* COMPARISON */
+	{ "=", "a b -- a=b", []() {
+		check_stack_len_ge("=?", 2);
+		stack_push(stack_pop() == stack_pop() ? ~0 : 0);
+	} },
+	{ "<", "a b -- a<b", []() {
+		check_stack_len_ge("=?", 2);
+		const uint32_t b_raw = stack_pop();
+		const uint32_t a_raw = stack_pop();
+		const int32_t b = *(int32_t*)&b_raw;
+		const int32_t a = *(int32_t*)&a_raw;
+		stack_push(a < b ? ~0 : 0);
 	} },
 
 	/* LITERALS */
@@ -1107,28 +1123,30 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 
 }
 
+#define run_line(code) do { \
+		state.line_len = strlen(code); \
+		assert(state.line_len < LINE_BUF_LEN); \
+		memcpy(state.line, (code), state.line_len); \
+		interpret_line(); \
+		state.line_len = 0; \
+	} while (0);
+
 void main() {
 	assert(!forth_running);
 	forth_running = true;
 	state = State{};
 
-	const char *minus_def = ": - ( a b -- a-b ) not inc + ;";
-	state.line_len = strlen(minus_def);
-	memcpy(state.line, minus_def, state.line_len);
-	interpret_line();
-	state.line_len = 0;
-
-	const char *neg_def = ": neg ( a -- -a ) 0 swap - ;";
-	state.line_len = strlen(neg_def);
-	memcpy(state.line, neg_def, state.line_len);
-	interpret_line();
-	state.line_len = 0;
-
-	const char *show_top_def = ": show_top ( a -- a ; prints the topmost stack element ) dup print ;";
-	state.line_len = strlen(show_top_def);
-	memcpy(state.line, show_top_def, state.line_len);
-	interpret_line();
-	state.line_len = 0;
+	run_line(": - ( a b -- a-b ) not inc + ;");
+	run_line(": neg ( a -- -a ) 0 swap - ;");
+	run_line(": *\trep ( a b c -- a x 0 ; multiplies b by a c times ) rev dup rot * rot dec dup ? rec ;");
+	run_line(": ^ ( a b -- a^b ; a to the power b ) 1 swap dup ? *\trep drop swap drop ;");
+	run_line(": != ( a b -- a!=b ) = not ;");
+	run_line(": <= ( a b -- a>=b ) dup rot dup rot < unrot = or ;");
+	run_line(": >= ( a b -- a>=b ) < not ;");
+	run_line(": > ( a b -- a>=b ) <= not ;");
+	run_line(": truthy? ( a -- a!=false ) false != ;");
+	run_line(": show_top ( a -- a ; prints the topmost stack element ) dup print ;");
+	run_line(": clear ( ... - ; clears the stack ) stack_len 0 = ? ret drop rec ;");
 
 	term::clear();
 	term::go_to(0, 0);
