@@ -503,10 +503,15 @@ const PrimitiveEntry primitives[] = {
 		const char *guide_text =
 			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
 			"Data consists of 32-bit integers stored on a stack.\n"
+			"Comments are formed with parentheses: ( this is a comment ) . Remember to leave spaces around each parenthesis!\n"
 			"There are two kinds of words: Primitives, which perform some operation, and numbers, which pushes a number to the stack.\n"
 			"To get a list of available primitives, enter `primitives` into the prompt.\n"
 			"To get more information on a given primitive, enter `help` followed by its name. Try `help help` or `help guide`.\n"
 			"A simple hello world program is `' hell pstr ' o pstr 32 pstr ' worl pstr ' d! pstr`. See if you can figure out how it works.\n"
+			"To get a list of available words, enter `words` into the prompt.\n"
+			"To see what a word was compiled into, enter `def` followed by its name. Try `def neg`.\n"
+			"To define your own word, start with `:`, followed by its name, then some documentation in a comment, then its code, ending off with `;`.\n"
+			"An example word definition would be : test ( this is an example ) ' test pstr ; . See if you can define your own plus function using `-` and `neg`.\n"
 		;
 		term::writestring(guide_text);
 	} },
@@ -960,31 +965,22 @@ void main() {
 	forth_running = true;
 	state = State{};
 
+	const char *minus_def = ": - ( a b -- a-b ) not inc + ;";
+	state.line_len = strlen(minus_def);
+	memcpy(state.line, minus_def, state.line_len);
+	interpret_line();
+	state.line_len = 0;
+
+	const char *neg_def = ": neg ( a -- -a ) 0 swap - ;";
+	state.line_len = strlen(neg_def);
+	memcpy(state.line, neg_def, state.line_len);
+	interpret_line();
+	state.line_len = 0;
+
 	term::clear();
 	term::go_to(0, 0);
 	puts("Enter `guide` for instructions on usage, or `exit` to exit the program.");
 	term::writestring("> ");
-
-	uint32_t start_pos, len;
-
-	start_pos = state.code_len;
-	state.code[state.code_len++] = { .idx = 11 };
-	state.code[state.code_len++] = { .idx = 4 };
-	state.code[state.code_len++] = { .idx = 14 };
-	len = state.code_len - start_pos;
-	const uint32_t minus_idx = state.words_len;
-	state.words[state.words_len++] = { "-", "a b -- a-b", start_pos, len };
-
-	start_pos = state.code_len;
-	state.code[state.code_len++] = { .prefix = CodeElemPrefix::Literal };
-	state.code[state.code_len++] = { .lit = 0 };
-	state.code[state.code_len++] = { .idx = 1 };
-	state.code[state.code_len++] = { .prefix = CodeElemPrefix::Word };
-	state.code[state.code_len++] = { .idx = minus_idx };
-	len = state.code_len - start_pos;
-	const uint32_t neg_idx = state.words_len;
-	state.words[state.words_len++] = { "_", "a -- -a", start_pos, len };
-	(void) neg_idx;
 
 	while (!state.should_quit) {
 		while (!ps2::events.empty()) {
