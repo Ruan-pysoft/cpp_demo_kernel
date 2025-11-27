@@ -667,14 +667,29 @@ void interpret_line() {
 				.idx = 0,
 				.len = state.words[word_idx].code_len,
 			};
-			run_compiled(state.words[word_idx].name);
+			if (state.compiling) {
+				state.code[state.code_len++] = CodeElem {
+					.prefix = CodeElemPrefix::Word,
+				};
+				state.code[state.code_len++] = CodeElem {
+					.idx = *(uint32_t*)&word_idx,
+				};
+			} else {
+				run_compiled(state.words[word_idx].name);
+			}
 
 			continue;
 		}
 
 		const int32_t prim_idx = search_primitive(&state.line[word], len);
 		if (prim_idx != -1) {
-			primitives[prim_idx].func();
+			if (state.compiling && !primitives[prim_idx].immediate) {
+				state.code[state.code_len++] = CodeElem {
+					.idx = *(uint32_t*)&prim_idx,
+				};
+			} else {
+				primitives[prim_idx].func();
+			}
 
 			continue;
 		}
@@ -695,6 +710,13 @@ void interpret_line() {
 		if (is_number) {
 			if (state.stack_len >= STACK_SIZE) {
 				state.interp.err = "Error at number literal: stack length should be < STACK_SIZE";
+			} else if (state.compiling) {
+				state.code[state.code_len++] = CodeElem {
+					.prefix = CodeElemPrefix::Literal,
+				};
+				state.code[state.code_len++] = CodeElem {
+					.lit = number,
+				};
 			} else {
 				state.stack[state.stack_len++] = number;
 			}
