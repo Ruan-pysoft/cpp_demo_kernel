@@ -40,11 +40,17 @@ struct Word {
 	size_t code_len;
 };
 
-union CodeElem {
-	uint32_t lit;
-	void (*fun)();
+enum class CodeElemPrefix {
+	Literal = -1,
+	Word = -2,
 };
-static_assert(sizeof(CodeElem) == sizeof(uint32_t), "Expected pointer size to be 32 bits");
+static_assert(sizeof(CodeElemPrefix) == sizeof(uint32_t), "Expected enum class to be 32 bits");
+union CodeElem {
+	CodeElemPrefix prefix;
+	uint32_t lit;
+	uint32_t idx;
+};
+static_assert(sizeof(CodeElem) == sizeof(uint32_t), "Expected union of 32-bit values to be 32 bits");
 
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t STACK_SIZE = 1024;
@@ -94,74 +100,8 @@ static inline uint32_t &stack_get(size_t nth = 1) {
 	return state.stack[state.stack_len - nth];
 }
 
-void run_compiled(const char *word_name) {
-	// TODO: unify error interface over compiled & interpreted forth code
-	while (state.comp.idx < state.comp.len && state.comp.err == NULL) {
-		const CodeElem head = state.code[state.comp.pos + state.comp.idx];
-		if (head.fun == NULL) {
-			++state.comp.idx;
-			if (state.comp.idx >= state.comp.len) {
-				state.comp.err = "Error in compiled word: NULL pointer should be followed by literal value";
-				break;
-			}
-			if (state.stack_len >= STACK_SIZE) {
-				state.comp.err = "Error at number literal: stack length should be < STACK_SIZE";
-				break;
-			}
-			const uint32_t lit = state.code[state.comp.pos + state.comp.idx].lit;
-			stack_push(lit);
-			++state.comp.idx;
-		} else {
-			++state.comp.idx;
-			head.fun();
-		}
-	}
-
-	if (state.comp.err && !state.comp.err_handled) {
-		state.comp.err_handled = true;
-		term::setcolor(vga::entry_color(
-			vga::Color::LightRed,
-			vga::Color::Black
-		));
-
-		puts(state.comp.err);
-		printf("@ compiled word `%s`\n", word_name);
-
-		term::resetcolor();
-	} else if (state.comp.err && state.comp.err_handled) {
-		term::setcolor(vga::entry_color(
-			vga::Color::LightRed,
-			vga::Color::Black
-		));
-
-		printf("@ compiled word `%s`\n", word_name);
-
-		term::resetcolor();
-	}
-}
-
-void run_word() {
-	if (state.comp.idx >= state.comp.len) {
-		state.comp.err = "Error at compiled word: expected word index";
-		return;
-	}
-	const uint32_t word_idx = state.code[state.comp.pos + state.comp.idx++].lit;
-	const auto save_state = state.comp;
-
-	state.comp.pos = state.words[word_idx].code_pos;
-	state.comp.len = state.words[word_idx].code_len;
-	state.comp.idx = 0;
-
-	run_compiled(state.words[word_idx].name);
-
-	const char *err = state.comp.err;
-	state.comp = save_state;
-	state.comp.err = err;
-	state.comp.err_handled = true;
-}
-
 void get_word();
-int32_t search_primative(const char *name, size_t name_len);
+int32_t search_primitive(const char *name, size_t name_len);
 int32_t search_word(const char *name, size_t name_len);
 #define error(msg) do { \
 		state.interp.err = msg; \
@@ -334,7 +274,7 @@ const PrimitiveEntry primitives[] = {
 			return;
 		}
 
-		const int32_t prim_idx = search_primative(
+		const int32_t prim_idx = search_primitive(
 			&state.line[state.interp.curr_word_pos],
 			state.interp.curr_word_len
 		);
@@ -384,14 +324,14 @@ const PrimitiveEntry primitives[] = {
 			// no checking as to validity
 			for (size_t ci = state.words[word_idx].code_pos; ci < state.words[word_idx].code_pos + state.words[word_idx].code_len; ++ci) {
 				const CodeElem head = state.code[ci];
-				if (head.fun == NULL) {
+				if (head.prefix == CodeElemPrefix::Literal) {
 					++ci;
 					printf(" %u", state.code[ci].lit);
-				} else if (head.fun == run_word) {
+				} else if (head.prefix == CodeElemPrefix::Word) {
 					++ci;
 					printf(" %s", state.words[state.code[ci].lit].name);
 				} else {
-					printf(" <built-in primitive>");
+					printf(" %s", primitives[head.idx]);
 				}
 			}
 			printf(" ;");
@@ -399,7 +339,7 @@ const PrimitiveEntry primitives[] = {
 			return;
 		}
 
-		const int32_t prim_idx = search_primative(
+		const int32_t prim_idx = search_primitive(
 			&state.line[state.interp.curr_word_pos],
 			state.interp.curr_word_len
 		);
@@ -431,7 +371,7 @@ constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives) - 1;
 #undef error_fun
 #undef error
 
-int32_t search_primative(const char *name, size_t name_len) {
+int32_t search_primitive(const char *name, size_t name_len) {
 	if (name_len == 0) return -1;
 
 	for (uint32_t i = 0; i < primitives_len; ++i) {
@@ -473,6 +413,72 @@ int32_t search_word(const char *name, size_t name_len) {
 	}
 
 	return -1;
+}
+
+void run_compiled(const char *word_name) {
+	// TODO: unify error interface over compiled & interpreted forth code
+	while (state.comp.idx < state.comp.len && state.comp.err == NULL) {
+		const CodeElem head = state.code[state.comp.pos + state.comp.idx];
+		++state.comp.idx;
+		if (head.prefix == CodeElemPrefix::Literal) {
+			if (state.comp.idx >= state.comp.len) {
+				state.comp.err = "Error in compiled word: expected literal value";
+				break;
+			}
+			if (state.stack_len >= STACK_SIZE) {
+				state.comp.err = "Error at number literal: stack length should be < STACK_SIZE";
+				break;
+			}
+			const uint32_t lit = state.code[state.comp.pos + state.comp.idx].lit;
+			stack_push(lit);
+			++state.comp.idx;
+		} else if (head.prefix == CodeElemPrefix::Word) {
+			if (state.comp.idx >= state.comp.len) {
+				state.comp.err = "Error in compiled word: expected word index";
+				break;
+			}
+			const uint32_t word_idx = state.code[state.comp.pos + state.comp.idx].idx;
+			const Word &word = state.words[word_idx];
+			const auto save_state = state.comp;
+
+			state.comp.pos = word.code_pos;
+			state.comp.len = word.code_len;
+			state.comp.idx = 0;
+
+			run_compiled(word.name);
+
+			const char *err = state.comp.err;
+			state.comp = save_state;
+			state.comp.err = err;
+			state.comp.err_handled = true;
+		} else {
+			const uint32_t prim_idx = head.idx;
+			const PrimitiveEntry &prim = primitives[prim_idx];
+			prim.func();
+		}
+	}
+
+	if (state.comp.err && !state.comp.err_handled) {
+		state.comp.err_handled = true;
+		term::setcolor(vga::entry_color(
+			vga::Color::LightRed,
+			vga::Color::Black
+		));
+
+		puts(state.comp.err);
+		printf("@ compiled word `%s`\n", word_name);
+
+		term::resetcolor();
+	} else if (state.comp.err && state.comp.err_handled) {
+		term::setcolor(vga::entry_color(
+			vga::Color::LightRed,
+			vga::Color::Black
+		));
+
+		printf("@ compiled word `%s`\n", word_name);
+
+		term::resetcolor();
+	}
 }
 
 void input_key(ps2::Key, char ch, bool capitalise) {
@@ -539,7 +545,7 @@ void interpret_line() {
 			continue;
 		}
 
-		const int32_t prim_idx = search_primative(&state.line[word], len);
+		const int32_t prim_idx = search_primitive(&state.line[word], len);
 		if (prim_idx != -1) {
 			primitives[prim_idx].func();
 
@@ -653,19 +659,19 @@ void main() {
 	uint32_t start_pos, len;
 
 	start_pos = state.code_len;
-	state.code[state.code_len++] = { .fun = primitives[11].func };
-	state.code[state.code_len++] = { .fun = primitives[4].func };
-	state.code[state.code_len++] = { .fun = primitives[14].func };
+	state.code[state.code_len++] = { .idx = 11 };
+	state.code[state.code_len++] = { .idx = 4 };
+	state.code[state.code_len++] = { .idx = 14 };
 	len = state.code_len - start_pos;
 	const uint32_t minus_idx = state.words_len;
 	state.words[state.words_len++] = { "-", "a b -- a-b", start_pos, len };
 
 	start_pos = state.code_len;
-	state.code[state.code_len++] = { .fun = NULL };
+	state.code[state.code_len++] = { .prefix = CodeElemPrefix::Literal };
 	state.code[state.code_len++] = { .lit = 0 };
-	state.code[state.code_len++] = { .fun = primitives[1].func };
-	state.code[state.code_len++] = { .fun = run_word };
-	state.code[state.code_len++] = { .lit = minus_idx };
+	state.code[state.code_len++] = { .idx = 1 };
+	state.code[state.code_len++] = { .prefix = CodeElemPrefix::Word };
+	state.code[state.code_len++] = { .idx = minus_idx };
 	len = state.code_len - start_pos;
 	const uint32_t neg_idx = state.words_len;
 	state.words[state.words_len++] = { "_", "a -- -a", start_pos, len };
