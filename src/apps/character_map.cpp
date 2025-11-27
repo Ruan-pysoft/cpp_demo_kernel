@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <sdk/terminal.hpp>
+
 #include "ps2.hpp"
 #include "vga.hpp"
 
@@ -25,25 +27,26 @@ void draw(State &state) {
 	const size_t title_offset = (vga::WIDTH - title_len)/2;
 
 	go_to(title_offset, 1);
-	setcolor(vga::entry_color(vga::Color::Black, vga::Color::LightGrey));
-	writestring(title);
-	resetcolor();
+	sdk::colors::with(
+		vga::Color::Black, vga::Color::LightGrey,
+		writestring, title
+	);
 
 	const size_t line_width = 0x10;
 	const size_t line_offset = (vga::WIDTH - line_width)/2;
 
 	go_to(line_offset, 3);
 	for (uint8_t low_half = 0; low_half <= 0xF; ++low_half) {
-		if (low_half == (state.pos&0xF)) setcolor(vga::entry_color(
+		auto color = sdk::ColorSwitch();
+		if (low_half == (state.pos&0xF)) color.set(
 			vga::Color::Black,
 			vga::Color::LightGrey
-		));
+		);
 		if (low_half < 0xA) {
 			putchar('0'+low_half);
 		} else {
 			putchar('a'+low_half-0xA);
 		}
-		if (low_half == (state.pos&0xF)) resetcolor();
 	}
 
 	for (uint8_t high_half = 0; high_half <= 0xF; ++high_half) {
@@ -64,12 +67,12 @@ void draw(State &state) {
 
 		for (uint8_t low_half = 0; low_half <= 0xF; ++low_half) {
 			const uint8_t byte = low_half + (high_half << 4);
-			if (byte == state.pos) setcolor(vga::entry_color(
+			auto color = sdk::ColorSwitch();
+			if (byte == state.pos) color.set(
 				vga::Color::DarkGrey,
 				vga::Color::White
-			));
+			);
 			putbyte(byte);
-			if (byte == state.pos) resetcolor();
 		}
 	}
 
@@ -78,12 +81,11 @@ void draw(State &state) {
 	const size_t help_offset = (vga::WIDTH - help_len)/2;
 
 	go_to(help_offset, vga::HEIGHT-1 - 1);
-	if (state.search_mode) setcolor(vga::entry_color(
-		vga::Color::Black,
-		vga::Color::LightGrey
-	));
-	writestring(help_text);
-	if (state.search_mode) resetcolor();
+	sdk::colors::with(
+		state.search_mode ? vga::Color::Black : vga::Color::LightGrey,
+		state.search_mode ? vga::Color::LightGrey : vga::Color::Black,
+		writestring, help_text
+	);
 }
 
 bool handle_keyevent(ps2::Event event, State &state) {

@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <sdk/terminal.hpp>
+
 #include "ps2.hpp"
 #include "vga.hpp"
 
@@ -48,24 +50,23 @@ struct State {
 		const size_t title_offset = (vga::WIDTH - title_len) / 2;
 
 		go_to(title_offset, 1);
-		setcolor(vga::entry_color(vga::Color::Black, vga::Color::LightGrey));
-		writestring(title);
-		resetcolor();
+		sdk::colors::with(
+			vga::Color::Black, vga::Color::LightGrey,
+			writestring, title
+		);
 
 		for (size_t i = 0; i < menu_entries_len; ++i) {
 			go_to(1, 3 + i);
 			putchar('-');
 
+			auto colors = sdk::ColorSwitch();
+
 			if (i == index) {
-				setcolor(vga::entry_color(vga::Color::Blue, vga::Color::White));
+				colors.set(vga::Color::Blue, vga::Color::White);
 			}
 
 			go_to(3, 3 + i);
 			writestring(menu_entries[i].name);
-
-			if (i == index) {
-				resetcolor();
-			}
 		}
 	}
 

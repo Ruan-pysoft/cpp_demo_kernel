@@ -1,11 +1,13 @@
 #include "apps/snake.hpp"
 
 #include <assert.h>
-#include <sdk/eventloop.hpp>
-#include <sdk/random.hpp>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+#include <sdk/eventloop.hpp>
+#include <sdk/terminal.hpp>
+#include <sdk/random.hpp>
 
 #include "ps2.hpp"
 #include "vga.hpp"
@@ -104,10 +106,10 @@ public:
 
 	void update(State &state);
 	void draw() const {
-		term::setcolor(vga::entry_color(
+		const auto _ = sdk::ColorSwitch(
 			vga::Color::Green,
 			vga::Color::Black
-		));
+		);
 
 		size_t i = num_segments;
 		while (i --> 1) {
@@ -118,8 +120,6 @@ public:
 		segments[0].go_to();
 		term::putchar('(');
 		term::putchar(')');
-
-		term::resetcolor();
 	}
 };
 
@@ -173,13 +173,11 @@ void draw() {
 	const char *title = "HELP";
 	const size_t title_len = strlen(title);
 	const size_t title_offset = (vga::WIDTH - title_len)/2;
-	term::setcolor(vga::entry_color(
-		vga::Color::DarkGrey,
-		vga::Color::White
-	));
 	term::go_to(title_offset, 1);
-	term::writestring(title);
-	term::resetcolor();
+	sdk::colors::with(
+		vga::Color::DarkGrey, vga::Color::White,
+		term::writestring, title
+	);
 
 	const char *help_text[] = {
 		"The object of the game is to eat as many cherries as possible, while",
@@ -196,25 +194,26 @@ void draw() {
 		"You can exit at any time by pressing \xffQ\xff or \xff""ESCAPE\xff.",
 	};
 
+	auto colors = sdk::ColorSwitch();
+
 	bool highlight = false;
 	for (size_t i = 0; i < sizeof(help_text)/sizeof(*help_text); ++i) {
 		term::go_to(2, 3 + i);
 		for (size_t j = 0; help_text[i][j] != 0; ++j) {
 			if (help_text[i][j] == '\xff' && !highlight) {
 				highlight = true;
-				term::setcolor(vga::entry_color(
+				colors.set(
 					vga::Color::DarkGrey,
 					vga::Color::White
-				));
+				);
 			} else if (help_text[i][j] == '\xff') {
 				highlight = false;
-				term::resetcolor();
+				colors.reset();
 			} else {
 				term::putchar(help_text[i][j]);
 			}
 		}
 	}
-	term::resetcolor();
 }
 
 }
@@ -279,13 +278,10 @@ void draw(State &state) {
 	writestring(help_text);
 
 	state.apple.go_to();
-	setcolor(vga::entry_color(
-		vga::Color::Red,
-		vga::Color::Black
-	));
-	putchar('\xa2');
-	putchar('\x95');
-	resetcolor();
+	sdk::colors::with_fg(vga::Color::Red, []() {
+		putchar('\xa2');
+		putchar('\x95');
+	});
 
 	state.snake.draw();
 
@@ -295,16 +291,11 @@ void draw(State &state) {
 		const size_t lose_text_len = strlen(lose_text);
 		const size_t lose_text_offset = (vga::WIDTH - lose_text_len)/2;
 
+		auto color = sdk::ColorSwitch();
 		if (state.blink_state) {
-			setcolor(vga::entry_color(
-				vga::Color::White,
-				vga::Color::Red
-			));
+			color.set(vga::Color::White, vga::Color::Red);
 		} else {
-			setcolor(vga::entry_color(
-				vga::Color::Red,
-				vga::Color::White
-			));
+			color.set(vga::Color::Red, vga::Color::White);
 		}
 
 		go_to(lose_text_offset, vga::HEIGHT/2 - 1);
@@ -313,8 +304,6 @@ void draw(State &state) {
 		writestring(lose_text);
 		go_to(lose_text_offset, vga::HEIGHT/2 + 1);
 		writestring(frame_text);
-
-		resetcolor();
 	}
 }
 

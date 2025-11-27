@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sdk/terminal.hpp>
+
 #include "pit.hpp"
 #include "ps2.hpp"
 #include "vga.hpp"
@@ -460,24 +462,14 @@ void run_compiled(const char *word_name) {
 
 	if (state.comp.err && !state.comp.err_handled) {
 		state.comp.err_handled = true;
-		term::setcolor(vga::entry_color(
-			vga::Color::LightRed,
-			vga::Color::Black
-		));
+		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
 
 		puts(state.comp.err);
 		printf("@ compiled word `%s`\n", word_name);
-
-		term::resetcolor();
 	} else if (state.comp.err && state.comp.err_handled) {
-		term::setcolor(vga::entry_color(
-			vga::Color::LightRed,
-			vga::Color::Black
-		));
+		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
 
 		printf("@ compiled word `%s`\n", word_name);
-
-		term::resetcolor();
 	}
 }
 
@@ -486,15 +478,13 @@ void input_key(ps2::Key, char ch, bool capitalise) {
 		state.has_inp_err = true;
 		state.inp_err_until = pit::millis + 100;
 
-		term::setcolor(vga::entry_color(
+		const auto _ = sdk::ColorSwitch(
 			vga::Color::Black,
 			vga::Color::LightRed
-		));
+		);
 
 		term::advance();
 		term::backspace();
-
-		term::resetcolor();
 		return;
 	}
 	// TODO: capitalisation for accented letters?
@@ -579,10 +569,7 @@ void interpret_line() {
 	putchar('\n');
 
 	if (state.interp.err) {
-		term::setcolor(vga::entry_color(
-			vga::Color::LightRed,
-			vga::Color::Black
-		));
+		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
 
 		puts(state.interp.err);
 		if (state.interp.curr_word_len == 0) {
@@ -594,8 +581,6 @@ void interpret_line() {
 			}
 			putchar('\n');
 		}
-
-		term::resetcolor();
 	}
 }
 
