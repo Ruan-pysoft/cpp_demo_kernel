@@ -513,7 +513,41 @@ const PrimitiveEntry primitives[] = {
 			"To define your own word, start with `:`, followed by its name, then some documentation in a comment, then its code, ending off with `;`.\n"
 			"An example word definition would be : test ( this is an example ) ' test pstr ; . See if you can define your own plus function using `-` and `neg`.\n"
 		;
-		term::writestring(guide_text);
+		size_t guide_len = strlen(guide_text);
+		size_t pos = 0;
+		size_t line_len = 0;
+		size_t word_start = 0;
+		while (pos < guide_len) {
+			const char ch = guide_text[pos];
+			if (ch == ' ' && line_len == vga::WIDTH) {
+				line_len = 0;
+				while (pos < guide_len && guide_text[pos] == ' ') ++pos;
+			} else if (ch == ' ' && line_len == vga::WIDTH-1) {
+				putchar('\n');
+				line_len = 0;
+				while (pos < guide_len && guide_text[pos] == ' ') ++pos;
+			} else if (ch == ' ') {
+				putchar(ch);
+				++line_len;
+				++pos;
+			} else if (ch == '\n') {
+				putchar(ch);
+				line_len = 0;
+				++pos;
+			} else {
+				word_start = pos;
+				while (pos < guide_len && guide_text[pos] != ' ' && guide_text[pos] != '\n') {
+					++pos;
+					++line_len;
+				}
+				if (line_len >= vga::WIDTH) {
+					// yes, the >= is intentional, I don't want words bumping up to the edge of the screen exactly.
+					putchar('\n');
+					line_len = pos - word_start;
+				}
+				for (size_t i = word_start; i < pos; ++i) putchar(guide_text[i]);
+			}
+		}
 	} },
 	{ "(", "-- ; begins a comment", []() {
 		int nesting = 1;
