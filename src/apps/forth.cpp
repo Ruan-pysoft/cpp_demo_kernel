@@ -25,6 +25,7 @@ struct CompiledState {
 	size_t len = 0;
 	size_t idx = 0;
 	const char *err = NULL;
+	bool err_handled = false;
 };
 
 struct PrimitiveEntry {
@@ -93,7 +94,8 @@ static inline uint32_t &stack_get(size_t nth = 1) {
 	return state.stack[state.stack_len - nth];
 }
 
-void run_compiled() {
+void run_compiled(const char *word_name) {
+	// TODO: unify error interface over compiled & interpreted forth code
 	while (state.comp.idx < state.comp.len && state.comp.err == NULL) {
 		const CodeElem head = state.code[state.comp.pos + state.comp.idx];
 		if (head.fun == NULL) {
@@ -104,27 +106,58 @@ void run_compiled() {
 			}
 			if (state.stack_len >= STACK_SIZE) {
 				state.comp.err = "Error at number literal: stack length should be < STACK_SIZE";
+				break;
 			}
 			const uint32_t lit = state.code[state.comp.pos + state.comp.idx].lit;
 			stack_push(lit);
 			++state.comp.idx;
 		} else {
-			head.fun();
 			++state.comp.idx;
+			head.fun();
 		}
 	}
 
-	if (state.comp.err) {
+	if (state.comp.err && !state.comp.err_handled) {
+		state.comp.err_handled = true;
 		term::setcolor(vga::entry_color(
 			vga::Color::LightRed,
 			vga::Color::Black
 		));
 
 		puts(state.comp.err);
-		puts("@ compiled word");
+		printf("@ compiled word `%s`\n", word_name);
+
+		term::resetcolor();
+	} else if (state.comp.err && state.comp.err_handled) {
+		term::setcolor(vga::entry_color(
+			vga::Color::LightRed,
+			vga::Color::Black
+		));
+
+		printf("@ compiled word `%s`\n", word_name);
 
 		term::resetcolor();
 	}
+}
+
+void run_word() {
+	if (state.comp.idx >= state.comp.len) {
+		state.comp.err = "Error at compiled word: expected word index";
+		return;
+	}
+	const uint32_t word_idx = state.code[state.comp.pos + state.comp.idx++].lit;
+	const auto save_state = state.comp;
+
+	state.comp.pos = state.words[word_idx].code_pos;
+	state.comp.len = state.words[word_idx].code_len;
+	state.comp.idx = 0;
+
+	run_compiled(state.words[word_idx].name);
+
+	const char *err = state.comp.err;
+	state.comp = save_state;
+	state.comp.err = err;
+	state.comp.err_handled = true;
 }
 
 void get_word();
@@ -426,7 +459,7 @@ void interpret_line() {
 				state.comp.pos = state.words[wi].code_pos;
 				state.comp.len = state.words[wi].code_len;
 				state.comp.idx = 0;
-				run_compiled();
+				run_compiled(state.words[wi].name);
 
 				break;
 			}
@@ -538,10 +571,26 @@ void main() {
 	puts("Enter `guide` for instructions on usage, or `exit` to exit the program.");
 	term::writestring("> ");
 
+	uint32_t start_pos, len;
+
+	start_pos = state.code_len;
 	state.code[state.code_len++] = { .fun = primitives[11].func };
 	state.code[state.code_len++] = { .fun = primitives[4].func };
 	state.code[state.code_len++] = { .fun = primitives[14].func };
-	state.words[state.words_len++] = { "-", "a b -- a-b", 0, 3 };
+	len = state.code_len - start_pos;
+	const uint32_t minus_idx = state.words_len;
+	state.words[state.words_len++] = { "-", "a b -- a-b", start_pos, len };
+
+	start_pos = state.code_len;
+	state.code[state.code_len++] = { .fun = NULL };
+	state.code[state.code_len++] = { .lit = 0 };
+	state.code[state.code_len++] = { .fun = primitives[1].func };
+	state.code[state.code_len++] = { .fun = run_word };
+	state.code[state.code_len++] = { .lit = minus_idx };
+	len = state.code_len - start_pos;
+	const uint32_t neg_idx = state.words_len;
+	state.words[state.words_len++] = { "_", "a -- -a", start_pos, len };
+	(void) neg_idx;
 
 	while (!state.should_quit) {
 		while (!ps2::events.empty()) {
