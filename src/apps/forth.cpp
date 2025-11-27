@@ -15,17 +15,21 @@ namespace forth {
 
 namespace {
 
+struct WordPos {
+	size_t pos = 0;
+	size_t idx = 0;
+	size_t len = 0;
+};
+struct CodePos {
+	size_t pos = 0;
+	size_t idx = 0;
+	size_t len = 0;
+};
 struct InterpreterState {
 	size_t line_pos = 0;
-	size_t curr_word_pos = 0;
-	size_t curr_word_len = 0;
-	const char *err = NULL;
-};
-
-struct CompiledState {
-	size_t pos = 0;
-	size_t len = 0;
-	size_t idx = 0;
+	WordPos word;
+	bool in_code = false;
+	CodePos code;
 	const char *err = NULL;
 	bool err_handled = false;
 };
@@ -75,7 +79,6 @@ struct State {
 	bool has_inp_err = false;
 	uint32_t inp_err_until = 0;
 	InterpreterState interp;
-	CompiledState comp;
 
 	State(const State&) = delete;
 	State &operator=(const State&) = delete;
@@ -215,15 +218,15 @@ const PrimitiveEntry primitives[] = {
 	{ "hex", "-- a ; interprets next word as hex number and pushes it", []() {
 		check_stack_len_lt("hex", STACK_SIZE);
 		get_word();
-		if (state.interp.curr_word_len == 0) {
+		if (state.interp.word.len == 0) {
 			error_fun("hex", "expected a hexadecimal number, didn't get anything");
 		}
-		if (state.interp.curr_word_len > 8) {
+		if (state.interp.word.len > 8) {
 			error_fun("hex", "largest supported number is FFFFFFFF");
 		}
 		uint32_t num = 0;
-		for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
-			const char ch = state.line[state.interp.curr_word_pos+i];
+		for (size_t i = 0; i < state.interp.word.len; ++i) {
+			const char ch = state.line[state.interp.word.pos+i];
 			if ((ch < '0' || '9' < ch) && (ch < 'a' || 'z' < ch) && (ch < 'A' || 'Z' < ch)) {
 				error_fun("hex", "expected hex number to consist only of hex digits (0-9, a-f, A-F)");
 			}
@@ -241,16 +244,16 @@ const PrimitiveEntry primitives[] = {
 	{ "'", "-- a ; interprets next word as short (<= 4 long) string and pushes it", []() {
 		check_stack_len_lt("'", STACK_SIZE);
 		get_word();
-		if (state.interp.curr_word_len == 0) {
+		if (state.interp.word.len == 0) {
 			error_fun("'", "expected a short string, didn't get anything");
 		}
-		if (state.interp.curr_word_len > 8) {
+		if (state.interp.word.len > 8) {
 			error_fun("'", "short strings may be no longer than four characters");
 		}
 		uint32_t num = 0;
-		size_t i = state.interp.curr_word_len;
+		size_t i = state.interp.word.len;
 		while (i --> 0) {
-			const char ch = state.line[state.interp.curr_word_pos+i];
+			const char ch = state.line[state.interp.word.pos+i];
 			num <<= 8;
 			num |= *(const uint8_t*)&ch;
 		}
@@ -258,13 +261,13 @@ const PrimitiveEntry primitives[] = {
 	} },
 	{ "help", "-- ; prints help text for the next word", []() {
 		get_word();
-		if (state.interp.curr_word_len == 0) {
+		if (state.interp.word.len == 0) {
 			error_fun("help", "expected following word");
 		}
 
 		const int32_t word_idx = search_word(
-			&state.line[state.interp.curr_word_pos],
-			state.interp.curr_word_len
+			&state.line[state.interp.word.pos],
+			state.interp.word.len
 		);
 		if (word_idx != -1) {
 			printf(
@@ -277,8 +280,8 @@ const PrimitiveEntry primitives[] = {
 		}
 
 		const int32_t prim_idx = search_primitive(
-			&state.line[state.interp.curr_word_pos],
-			state.interp.curr_word_len
+			&state.line[state.interp.word.pos],
+			state.interp.word.len
 		);
 		if (prim_idx != -1) {
 			printf(
@@ -309,13 +312,13 @@ const PrimitiveEntry primitives[] = {
 	} },
 	{ "def", "-- ; prints the definition of a given word", []() {
 		get_word();
-		if (state.interp.curr_word_len == 0) {
+		if (state.interp.word.len == 0) {
 			error_fun("def", "expected following word");
 		}
 
 		const int32_t word_idx = search_word(
-			&state.line[state.interp.curr_word_pos],
-			state.interp.curr_word_len
+			&state.line[state.interp.word.pos],
+			state.interp.word.len
 		);
 		if (word_idx != -1) {
 			printf(
@@ -342,8 +345,8 @@ const PrimitiveEntry primitives[] = {
 		}
 
 		const int32_t prim_idx = search_primitive(
-			&state.line[state.interp.curr_word_pos],
-			state.interp.curr_word_len
+			&state.line[state.interp.word.pos],
+			state.interp.word.len
 		);
 		if (prim_idx != -1) {
 			printf(
@@ -417,59 +420,69 @@ int32_t search_word(const char *name, size_t name_len) {
 	return -1;
 }
 
+#ifdef TRACING
+#define TRACE(...) printf(__VA_ARGS__)
+#else
+#define TRACE(...)
+#endif
 void run_compiled(const char *word_name) {
-	// TODO: unify error interface over compiled & interpreted forth code
-	while (state.comp.idx < state.comp.len && state.comp.err == NULL) {
-		const CodeElem head = state.code[state.comp.pos + state.comp.idx];
-		++state.comp.idx;
+	TRACE("[(%s]", word_name);
+	while (state.interp.code.idx < state.interp.code.len && state.interp.err == NULL) {
+		const CodeElem head = state.code[state.interp.code.pos + state.interp.code.idx];
+		++state.interp.code.idx;
 		if (head.prefix == CodeElemPrefix::Literal) {
-			if (state.comp.idx >= state.comp.len) {
-				state.comp.err = "Error in compiled word: expected literal value";
+			if (state.interp.code.idx >= state.interp.code.len) {
+				state.interp.err = "Error in compiled word: expected literal value";
 				break;
 			}
 			if (state.stack_len >= STACK_SIZE) {
-				state.comp.err = "Error at number literal: stack length should be < STACK_SIZE";
+				state.interp.err = "Error at number literal: stack length should be < STACK_SIZE";
 				break;
 			}
-			const uint32_t lit = state.code[state.comp.pos + state.comp.idx].lit;
+			const uint32_t lit = state.code[state.interp.code.pos + state.interp.code.idx].lit;
+			++state.interp.code.idx;
+			TRACE("<(%u:%u>", lit, state.stack_len);
 			stack_push(lit);
-			++state.comp.idx;
+			TRACE("<%u:%u)>", lit, state.stack_len);
 		} else if (head.prefix == CodeElemPrefix::Word) {
-			if (state.comp.idx >= state.comp.len) {
-				state.comp.err = "Error in compiled word: expected word index";
+			if (state.interp.code.idx >= state.interp.code.len) {
+				state.interp.err = "Error in compiled word: expected word index";
 				break;
 			}
-			const uint32_t word_idx = state.code[state.comp.pos + state.comp.idx].idx;
+			const uint32_t word_idx = state.code[state.interp.code.pos + state.interp.code.idx].idx;
+			++state.interp.code.idx;
 			const Word &word = state.words[word_idx];
-			const auto save_state = state.comp;
+			const auto save_state = state.interp.code;
 
-			state.comp.pos = word.code_pos;
-			state.comp.len = word.code_len;
-			state.comp.idx = 0;
-
+			state.interp.code = CodePos {
+				.pos = word.code_pos,
+				.idx = 0,
+				.len = word.code_len
+			};
+			TRACE("<(%s!%u>", word.name, state.stack_len);
 			run_compiled(word.name);
-
-			const char *err = state.comp.err;
-			state.comp = save_state;
-			state.comp.err = err;
-			state.comp.err_handled = true;
+			TRACE("<%s!%u)>", word.name, state.stack_len);
+			state.interp.code = save_state;
 		} else {
 			const uint32_t prim_idx = head.idx;
 			const PrimitiveEntry &prim = primitives[prim_idx];
+			TRACE("<(%s$%u>", prim.name, state.stack_len);
 			prim.func();
+			TRACE("<%s$%u)>", prim.name, state.stack_len);
 		}
 	}
+	TRACE("[%s)]", word_name);
 
-	if (state.comp.err && !state.comp.err_handled) {
-		state.comp.err_handled = true;
+	if (state.interp.err) {
 		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
 
-		puts(state.comp.err);
+		if (!state.interp.err_handled) {
+			putchar('\n');
+			puts(state.interp.err);
+		}
 		printf("@ compiled word `%s`\n", word_name);
-	} else if (state.comp.err && state.comp.err_handled) {
-		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
 
-		printf("@ compiled word `%s`\n", word_name);
+		state.interp.err_handled = true;
 	}
 }
 
@@ -509,16 +522,16 @@ void get_word() {
 		++word_end;
 	}
 
-	state.interp.curr_word_len = word_end - start;
-	state.interp.curr_word_pos = start;
-	start += state.interp.curr_word_len;
+	state.interp.word.len = word_end - start;
+	state.interp.word.pos = start;
+	start += state.interp.word.len;
 }
 
 void interpret_line() {
 	state.interp = {};
 
-	size_t &word = state.interp.curr_word_pos;
-	size_t &len = state.interp.curr_word_len;
+	size_t &word = state.interp.word.pos;
+	size_t &len = state.interp.word.len;
 
 	while (word < state.line_len && state.interp.err == NULL) {
 		get_word();
@@ -526,10 +539,11 @@ void interpret_line() {
 
 		const int32_t word_idx = search_word(&state.line[word], len);
 		if (word_idx != -1) {
-			state.comp = CompiledState{};
-			state.comp.pos = state.words[word_idx].code_pos;
-			state.comp.len = state.words[word_idx].code_len;
-			state.comp.idx = 0;
+			state.interp.code = {
+				.pos = state.words[word_idx].code_pos,
+				.idx = 0,
+				.len = state.words[word_idx].code_len,
+			};
 			run_compiled(state.words[word_idx].name);
 
 			continue;
@@ -566,21 +580,26 @@ void interpret_line() {
 		}
 	}
 
-	putchar('\n');
-
 	if (state.interp.err) {
 		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
 
-		puts(state.interp.err);
-		if (state.interp.curr_word_len == 0) {
+		if (!state.interp.err_handled) {
+			putchar('\n');
+			puts(state.interp.err);
+		}
+		if (state.interp.word.len == 0) {
 			puts("@ end of line");
 		} else {
-			printf("@ word starting at %u: ", state.interp.curr_word_pos);
-			for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
-				putchar(state.line[state.interp.curr_word_pos + i]);
+			printf("@ word starting at %u: ", state.interp.word.pos);
+			for (size_t i = 0; i < state.interp.word.len; ++i) {
+				putchar(state.line[state.interp.word.pos + i]);
 			}
 			putchar('\n');
 		}
+
+		state.interp.err_handled = true;
+	} else {
+		putchar('\n');
 	}
 }
 
