@@ -28,7 +28,6 @@ struct CodePos {
 struct InterpreterState {
 	size_t line_pos = 0;
 	WordPos word;
-	bool in_code = false;
 	CodePos code;
 	const char *err = NULL;
 	bool err_handled = false;
@@ -140,6 +139,7 @@ int32_t search_word(const char *name, size_t name_len);
 	} while (0)
 #define check_stack_len_lt(fun, expr) if (state.stack_len >= (expr)) error_fun(fun, "stack length should be < " #expr)
 #define check_stack_len_ge(fun, expr) if (state.stack_len < (expr)) error_fun(fun, "stack length should be >= " #expr)
+#define check_code_len(fun, len) if (state.code_len + 2 > CODE_BUF_SIZE) error_fun(fun, "not enough space to generate code for user word")
 RawFunction print_raw = { "<internal:print_raw>", []() {
 	check_stack_len_ge("<internal:print_raw>", 1);
 	const char *str = reinterpret_cast<const char*>(stack_pop());
@@ -150,7 +150,35 @@ RawFunction raw_print_definition = { "<internal:print_definition>", []() {
 	check_stack_len_ge("<internal:print_definition>", 1);
 	print_definition(stack_pop());
 } };
+RawFunction recurse = { "rec", []() {
+	state.interp.code.idx = 0;
+} };
+RawFunction rf_return = { "ret", []() {
+	state.interp.code.idx = state.interp.code.len;
+} };
+RawFunction do_if = { "?", []() {
+	check_stack_len_ge("?", 1);
+	if (stack_pop() == 0) {
+		if (state.interp.code.idx < state.interp.code.len) {
+			const CodeElem next = state.code[state.interp.code.pos + state.interp.code.idx];
+			if (next.prefix == CodeElemPrefix::Literal) ++state.interp.code.idx;
+			else if (next.prefix == CodeElemPrefix::Word) ++state.interp.code.idx;
+			else if (next.prefix == CodeElemPrefix::RawFunc) ++state.interp.code.idx;
+		}
+		++state.interp.code.idx;
+	}
+} };
 const PrimitiveEntry primitives[] = {
+	{ ".", "-- ; shows the top 16 elements of the stack", []() {
+		if (state.stack_len == 0) { puts("empty."); return; }
+
+		const size_t amt = state.stack_len < 16 ? state.stack_len : 16;
+		if (state.stack_len > 16) term::writestring("... ");
+		for (size_t i = amt; i > 0; --i) {
+			printf("%d ", stack_peek(i));
+		}
+		putchar('\n');
+	} },
 	{ "dup", "a -- a a", []() {
 		check_stack_len_ge("dup", 1);
 		check_stack_len_lt("dup", STACK_SIZE);
@@ -269,9 +297,8 @@ const PrimitiveEntry primitives[] = {
 			}
 		}
 		if (state.compiling) {
-			if (state.code_len + 2 > CODE_BUF_SIZE) {
-				error_fun("hex", "not enough space to generate code for user word");
-			}
+			check_code_len("hex", 2);
+
 			state.code[state.code_len++] = CodeElem {
 				.prefix = CodeElemPrefix::Literal,
 			};
@@ -299,9 +326,8 @@ const PrimitiveEntry primitives[] = {
 			num |= *(const uint8_t*)&ch;
 		}
 		if (state.compiling) {
-			if (state.code_len + 2 > CODE_BUF_SIZE) {
-				error_fun("'", "not enough space to generate code for user word");
-			}
+			check_code_len("'", 2);
+
 			state.code[state.code_len++] = CodeElem {
 				.prefix = CodeElemPrefix::Literal,
 			};
@@ -323,9 +349,7 @@ const PrimitiveEntry primitives[] = {
 			state.interp.word.len
 		);
 		if (word_idx != -1 && state.compiling) {
-			if (state.code_len + 4 > CODE_BUF_SIZE) {
-				error_fun("help", "not enough space to generate code for user word");
-			}
+			check_code_len("help", 4);
 
 			state.code[state.code_len++] = CodeElem {
 				.prefix = CodeElemPrefix::Literal,
@@ -356,9 +380,7 @@ const PrimitiveEntry primitives[] = {
 			state.interp.word.len
 		);
 		if (prim_idx != -1 && state.compiling) {
-			if (state.code_len + 4 > CODE_BUF_SIZE) {
-				error_fun("help", "not enough space to generate code for user word");
-			}
+			check_code_len("help", 4);
 
 			state.code[state.code_len++] = CodeElem {
 				.prefix = CodeElemPrefix::Literal,
@@ -412,9 +434,7 @@ const PrimitiveEntry primitives[] = {
 			state.interp.word.len
 		);
 		if (word_idx != -1 && state.compiling) {
-			if (state.code_len + 4 > CODE_BUF_SIZE) {
-				error_fun("def", "not enough space to generate code for user word");
-			}
+			check_code_len("def", 4);
 
 			state.code[state.code_len++] = CodeElem {
 				.prefix = CodeElemPrefix::Literal,
@@ -441,9 +461,7 @@ const PrimitiveEntry primitives[] = {
 			state.interp.word.len
 		);
 		if (prim_idx != -1 && state.compiling) {
-			if (state.code_len + 12 > CODE_BUF_SIZE) {
-				error_fun("def", "not enough space to generate code for user word");
-			}
+			check_code_len("def", 12);
 
 			const char *s0 = "<built-in primitive `";
 			const char *s1 = "`>";
@@ -502,7 +520,7 @@ const PrimitiveEntry primitives[] = {
 	{ "guide", "-- ; prints usage guide for the forth interpreter", []() {
 		const char *guide_text =
 			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
-			"Data consists of 32-bit integers stored on a stack.\n"
+			"Data consists of 32-bit integers stored on a stack. You can enter a single period ( . ) into the prompt at any time to view the stack.\n"
 			"Comments are formed with parentheses: ( this is a comment ) . Remember to leave spaces around each parenthesis!\n"
 			"There are two kinds of words: Primitives, which perform some operation, and numbers, which pushes a number to the stack.\n"
 			"To get a list of available primitives, enter `primitives` into the prompt.\n"
@@ -656,6 +674,49 @@ const PrimitiveEntry primitives[] = {
 		};
 
 		state.compiling = false;
+	}, true },
+	{ "rec", "-- ; recurses (runs the current word from the start)", []() {
+		if (!state.compiling) {
+			error_fun("rec", "rec is only valid when defining a word (inside : ; )");
+		}
+		check_code_len("rec", 2);
+
+		state.code[state.code_len++] = {
+			.prefix = CodeElemPrefix::RawFunc,
+		};
+		state.code[state.code_len++] = {
+			.fun = &recurse
+		};
+	}, true },
+	{ "ret", "-- ; returns (exits the current word early)", []() {
+		if (!state.compiling) {
+			error_fun("ret", "ret is only valid when defining a word (inside : ; )");
+		}
+		check_code_len("ret", 2);
+
+		state.code[state.code_len++] = {
+			.prefix = CodeElemPrefix::RawFunc,
+		};
+		state.code[state.code_len++] = {
+			.fun = &rf_return
+		};
+	}, true },
+	{ "?", "a -- ; only executes the next word if the stack top is nonzero", []() {
+		if (!state.compiling) {
+			check_stack_len_ge("?", 1);
+
+			if (stack_pop() == 0) get_word();
+
+			return;
+		}
+		check_code_len("?", 2);
+
+		state.code[state.code_len++] = {
+			.prefix = CodeElemPrefix::RawFunc,
+		};
+		state.code[state.code_len++] = {
+			.fun = &do_if,
+		};
 	}, true },
 	{ NULL, NULL, NULL },
 };
@@ -1008,6 +1069,12 @@ void main() {
 	const char *neg_def = ": neg ( a -- -a ) 0 swap - ;";
 	state.line_len = strlen(neg_def);
 	memcpy(state.line, neg_def, state.line_len);
+	interpret_line();
+	state.line_len = 0;
+
+	const char *show_top_def = ": show_top ( a -- a ; prints the topmost stack element ) dup print ;";
+	state.line_len = strlen(show_top_def);
+	memcpy(state.line, show_top_def, state.line_len);
 	interpret_line();
 	state.line_len = 0;
 
