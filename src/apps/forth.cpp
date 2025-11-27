@@ -38,12 +38,20 @@ struct PrimitiveEntry {
 	const char *name;
 	const char *desc;
 	void(*func)();
+	bool immediate = false;
 };
 struct Word {
 	const char *name;
 	const char *desc;
 	uint32_t code_pos;
 	size_t code_len;
+};
+
+struct CompilerState {
+	size_t code_start_idx;
+	WordPos name;
+	size_t desc_start;
+	size_t desc_len;
 };
 
 enum class CodeElemPrefix {
@@ -62,6 +70,9 @@ constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t STACK_SIZE = 1024;
 constexpr size_t MAX_WORDS = 1024;
 constexpr size_t EST_DESC_LEN = 64;
+constexpr size_t DESC_BUF_LEN = MAX_WORDS * EST_DESC_LEN;
+constexpr size_t EST_NAME_LEN = 4;
+constexpr size_t NAME_BUF_LEN = MAX_WORDS * EST_NAME_LEN;
 constexpr size_t CODE_BUF_SIZE = MAX_WORDS*64;
 struct State {
 	bool should_quit = false;
@@ -73,12 +84,16 @@ struct State {
 	size_t words_len = 0;
 	Word words[MAX_WORDS];
 	size_t word_descs_len = 0;
-	char word_descs[MAX_WORDS * EST_DESC_LEN];
+	char word_descs[DESC_BUF_LEN];
+	size_t word_names_len = 0;
+	char word_names[NAME_BUF_LEN];
 	size_t code_len;
 	CodeElem code[CODE_BUF_SIZE];
 	bool has_inp_err = false;
 	uint32_t inp_err_until = 0;
+	bool compiling = false;
 	InterpreterState interp;
+	CompilerState comp;
 
 	State(const State&) = delete;
 	State &operator=(const State&) = delete;
@@ -370,6 +385,114 @@ const PrimitiveEntry primitives[] = {
 		;
 		term::writestring(guide_text);
 	} },
+	{ "(", "-- ; begins a comment", []() {
+		int nesting = 1;
+
+		while (nesting) {
+			get_word();
+			if (state.interp.word.len == 0) {
+				error_fun("(", "expected matching )");
+			}
+
+			if (state.interp.word.len == 1 && state.line[state.interp.word.pos] == '(') {
+				++nesting;
+			} else if (state.interp.word.len == 1 && state.line[state.interp.word.pos] == ')') {
+				--nesting;
+			}
+		}
+	}, true },
+	{ ")", "-- ; ends a comment", []() {
+		error_fun(")", "comment end found without matching comment begin!");
+	}, true },
+	{ ":", "-- ; begins a user-supplied word definition", []() {
+		if (state.compiling) {
+			error_fun(":", "new words may only be defined while interpreting a line");
+		}
+
+		get_word();
+		if (state.interp.word.len == 0) {
+			error_fun(":", "expected word name");
+		}
+
+		state.comp = CompilerState {
+			.code_start_idx = state.code_len,
+			.name = state.interp.word,
+			.desc_start = 0,
+			.desc_len = 0,
+		};
+		state.compiling = true;
+
+		get_word();
+		if (state.interp.word.len != 1 || state.line[state.interp.word.pos] != '(') {
+			state.interp.line_pos = state.interp.word.pos; // TODO: check that this is correct and shouldn't be -1
+			return;
+		}
+
+		get_word();
+		if (state.interp.word.len == 0) {
+			error_fun(":", "expected matching ) for start of description");
+		}
+		state.comp.desc_start = state.interp.word.pos;
+		state.interp.line_pos = state.interp.word.pos; // TODO: check that this is correct and shouldn't be -1
+
+		int nesting = 1;
+		while (nesting) {
+			state.comp.desc_len = state.interp.word.pos + state.interp.word.len - state.comp.desc_start;
+
+			get_word();
+			if (state.interp.word.len == 0) {
+				error_fun(":", "expected matching ) for start of description");
+			}
+
+			if (state.interp.word.len == 1 && state.line[state.interp.word.pos] == '(') {
+				++nesting;
+			} else if (state.interp.word.len == 1 && state.line[state.interp.word.pos] == ')') {
+				--nesting;
+			}
+		}
+	}, true },
+	{ ";", "-- ; ends a user-supplied word definition", []() {
+		if (!state.compiling) {
+			error_fun(";", "a word definition may only be ended after it has been started");
+		}
+
+		if (state.words_len == MAX_WORDS) {
+			error_fun(";", "too many words defined");
+		}
+		if (state.word_descs_len + state.comp.desc_len + 1 > DESC_BUF_LEN) {
+			error_fun(";", "ran out of space for word description");
+		}
+		if (state.word_names_len + state.comp.name.len + 1 > NAME_BUF_LEN) {
+			error_fun(";", "ran out of space for word name");
+		}
+
+		char *desc = &state.word_descs[state.word_descs_len];
+		memcpy(
+			desc,
+			&state.line[state.comp.desc_start],
+			state.comp.desc_len
+		);
+		desc[state.comp.desc_len] = 0;
+		state.word_descs_len += state.comp.desc_len + 1;
+
+		char *name = &state.word_names[state.word_names_len];
+		memcpy(
+			name,
+			&state.line[state.comp.name.pos],
+			state.comp.name.len
+		);
+		name[state.comp.name.len] = 0;
+		state.word_names_len += state.comp.name.len + 1;
+
+		state.words[state.words_len++] = Word {
+			.name = name,
+			.desc = desc,
+			.code_pos = state.comp.code_start_idx,
+			.code_len = state.code_len - state.comp.code_start_idx,
+		};
+
+		state.compiling = false;
+	}, true },
 	{ NULL, NULL, NULL },
 };
 constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives) - 1;
