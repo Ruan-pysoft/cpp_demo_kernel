@@ -161,6 +161,8 @@ void run_word() {
 }
 
 void get_word();
+int32_t search_primative(const char *name, size_t name_len);
+int32_t search_word(const char *name, size_t name_len);
 #define error(msg) do { \
 		state.interp.err = msg; \
 		return; \
@@ -318,51 +320,35 @@ const PrimitiveEntry primitives[] = {
 			error_fun("help", "expected following word");
 		}
 
-		bool was_primitive = false;
-		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
-			if (strlen(primitives[pi].name) != state.interp.curr_word_len) continue;
+		const int32_t word_idx = search_word(
+			&state.line[state.interp.curr_word_pos],
+			state.interp.curr_word_len
+		);
+		if (word_idx != -1) {
+			printf(
+				"`%s`: %s",
+				state.words[word_idx].name,
+				state.words[word_idx].desc
+			);
 
-			bool matches = true;
-			for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
-				if (primitives[pi].name[i] != state.line[state.interp.curr_word_pos + i]) {
-					matches = false;
-					break;
-				}
-			}
-
-			if (matches) {
-				was_primitive = true;
-				printf("`%s`: %s", primitives[pi].name, primitives[pi].desc);
-
-				break;
-			}
+			return;
 		}
 
-		if (was_primitive) return;
+		const int32_t prim_idx = search_primative(
+			&state.line[state.interp.curr_word_pos],
+			state.interp.curr_word_len
+		);
+		if (prim_idx != -1) {
+			printf(
+				"`%s`: %s",
+				primitives[prim_idx].name,
+				primitives[prim_idx].desc
+			);
 
-		bool was_word = false;
-		for (size_t wi = 0; wi < state.words_len; ++wi) {
-			if (strlen(state.words[wi].name) != state.interp.curr_word_len) continue;
-
-			bool matches = true;
-			for (size_t i = 0; i < state.interp.curr_word_len; ++i) {
-				if (state.words[wi].name[i] != state.line[state.interp.curr_word_pos + i]) {
-					matches = false;
-					break;
-				}
-			}
-
-			if (matches) {
-				was_word = true;
-				printf("`%s`: %s", state.words[wi].name, state.words[wi].desc);
-
-				break;
-			}
+			return;
 		}
 
-		if (!was_word) {
-			error_fun("help", "Couldn't find specified word");
-		}
+		error_fun("help", "Couldn't find specified word");
 	} },
 	{ "primitives", "-- ; prints a list of all available primitive words", []() {
 		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
@@ -387,6 +373,50 @@ const PrimitiveEntry primitives[] = {
 constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives) - 1;
 #undef error_fun
 #undef error
+
+int32_t search_primative(const char *name, size_t name_len) {
+	if (name_len == 0) return -1;
+
+	for (uint32_t i = 0; i < primitives_len; ++i) {
+		if (strlen(primitives[i].name) != name_len) continue;
+
+		bool matches = true;
+		for (size_t j = 0; j < name_len; ++j) {
+			if (primitives[i].name[j] != name[j]) {
+				matches = false;
+				break;
+			}
+		}
+
+		if (matches) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+int32_t search_word(const char *name, size_t name_len) {
+	if (name_len == 0) return -1;
+
+	uint32_t i = state.words_len;
+	while (i --> 0) {
+		if (strlen(state.words[i].name) != name_len) continue;
+
+		bool matches = true;
+		for (size_t j = 0; j < name_len; ++j) {
+			if (state.words[i].name[j] != name[j]) {
+				matches = false;
+				break;
+			}
+		}
+
+		if (matches) {
+			return i;
+		}
+	}
+
+	return -1;
+}
 
 void input_key(ps2::Key, char ch, bool capitalise) {
 	if (state.line_len == MAX_LINE_LEN) {
@@ -441,53 +471,23 @@ void interpret_line() {
 		get_word();
 		if (len == 0) break;
 
-		bool was_primitive = false;
-		for (size_t pi = 0; pi < primitives_len; ++pi) {
-			if (strlen(primitives[pi].name) != len) continue;
+		const int32_t word_idx = search_word(&state.line[word], len);
+		if (word_idx != -1) {
+			state.comp = CompiledState{};
+			state.comp.pos = state.words[word_idx].code_pos;
+			state.comp.len = state.words[word_idx].code_len;
+			state.comp.idx = 0;
+			run_compiled(state.words[word_idx].name);
 
-			bool matches = true;
-			for (size_t i = 0; i < len; ++i) {
-				if (primitives[pi].name[i] != state.line[word+i]) {
-					matches = false;
-					break;
-				}
-			}
-
-			if (matches) {
-				was_primitive = true;
-				primitives[pi].func();
-
-				break;
-			}
+			continue;
 		}
 
-		if (was_primitive) continue;
+		const int32_t prim_idx = search_primative(&state.line[word], len);
+		if (prim_idx != -1) {
+			primitives[prim_idx].func();
 
-		bool was_word = false;
-		for (size_t wi = 0; wi < state.words_len; ++wi) {
-			if (strlen(state.words[wi].name) != len) continue;
-
-			bool matches = true;
-			for (size_t i = 0; i < len; ++i) {
-				if (state.words[wi].name[i] != state.line[word+i]) {
-					matches = false;
-					break;
-				}
-			}
-
-			if (matches) {
-				was_word = true;
-				state.comp = CompiledState{};
-				state.comp.pos = state.words[wi].code_pos;
-				state.comp.len = state.words[wi].code_len;
-				state.comp.idx = 0;
-				run_compiled(state.words[wi].name);
-
-				break;
-			}
+			continue;
 		}
-
-		if (was_word) continue;
 
 		bool is_number = true;
 		uint32_t number = 0;
