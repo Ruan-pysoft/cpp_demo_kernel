@@ -5,14 +5,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "idt.hpp"
 #include "vga.hpp"
 #include "pic.hpp"
 #include "pit.hpp"
 #include "ps2.hpp"
-#include "blit.hpp"
 #include "ioport.hpp"
 #include "gdt.hpp"
 
@@ -66,23 +64,11 @@ void kernel_early_main() {
 	asm volatile("sti" ::: "memory");
 }
 
-void dot(void*) {
-	BLT_WRITE_CHR('.');
-}
-
 /*
  * put the actual implementation outside of the extern "C" section, idk if I
  * can use c++ features inside the extern "C" section
  */
 void kernel_main(void) {
-	const char *answer_seekers_computer_builders = "mouse people";
-
-	printf("Hi there %s, the answer to your query is: %d\n", answer_seekers_computer_builders, 42);
-
-	for (int i = 0; i < 1024 * 1024; ++i) io_wait();
-
-	printf("Milliseconds since startup: %u\n", pit::millis);
-
 	main_menu::main();
 }
 
