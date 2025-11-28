@@ -1474,7 +1474,7 @@ void main() {
 	run_line(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
 
 	run_line(": != ( a b -- a!=b ) = not ;");
-	run_line(": <= ( a b -- a>=b ) dup rot dup rot < unrot = or ;");
+	run_line(": <= ( a b -- a<=b ) dup rot dup rot < unrot = or ;");
 	run_line(": >= ( a b -- a>=b ) < not ;");
 	run_line(": > ( a b -- a>=b ) <= not ;");
 
