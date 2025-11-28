@@ -75,6 +75,9 @@ OBJS="$OBJS $BUILDDIR/apps/character_map.o"
 $CC $CFLAGS -c $SRCDIR/apps/forth.cpp -o $BUILDDIR/apps/forth.o
 OBJS="$OBJS $BUILDDIR/apps/forth.o"
 
+$CC $CFLAGS -c $SRCDIR/apps/components/menu.cpp -o $BUILDDIR/apps/component-menu.o
+OBJS="$OBJS $BUILDDIR/apps/component-menu.o"
+
 mkdir -p $BUILDDIR/sdk
 
 $CC $CFLAGS -c $SRCDIR/libk/sdk/eventloop.cpp -o $BUILDDIR/sdk/eventloop.o
