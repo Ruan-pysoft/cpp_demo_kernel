@@ -1,4 +1,20 @@
-/* from https://wiki.osdev.org/Bare_Bones */
+/*
+ * This file is the entry point of the kernel.
+ * It mostly contains some initialisation code (kernel_early_main)
+ * and then the entry point (kernel_main),
+ * which is called from assembly in boot.s.
+ *
+ * There is also the `__cxa_pure_virtual` function,
+ * which is some C++ required function idk.
+ * Seems to be called when C++ fails creating a virtual function for whichever reason.
+ *
+ * To get info on basic setup of a kernel, visit https://wiki.osdev.org/Bare_Bones
+ * Quite frankly, C is much better suited to kernel dev than C++,
+ * and this project is (relatively) large (okay, quite small for an OS),
+ * and probably not organised super nicely,
+ * so if you want an example kernel to peek at
+ * I'd recommend looking at https://github.com/Ruan-pysoft/ps2keyboard_demo instead.
+ */
 
 #include <stddef.h>
 #include <stdint.h>
@@ -41,9 +57,11 @@ void kernel_early_main() {
 	/* Initialize terminal interface */
 	term::init();
 
+	/* Global Descriptor Table (needed for the IDT) */
 	gdt::init();
 	gdt::load();
 
+	/* Interrupt Vector Table (needed for the PIT and PIC) */
 	idt::init();
 	idt::load();
 
@@ -64,11 +82,9 @@ void kernel_early_main() {
 	asm volatile("sti" ::: "memory");
 }
 
-/*
- * put the actual implementation outside of the extern "C" section, idk if I
- * can use c++ features inside the extern "C" section
- */
 void kernel_main(void) {
+	// currently just call the main_menu app's main function.
+	// You can look into the git history to see what I did here before.
 	main_menu::main();
 }
 
