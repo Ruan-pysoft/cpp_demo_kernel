@@ -1,5 +1,13 @@
 #include "blit.hpp"
 
+/* See include/blit.hpp for a high-level overview. */
+
+/* This file does two things:
+ * provide function wrappers for the BLT_* macros, for use by assembly code,
+ * and it holds the storage for the vga_idx variable.
+ * See the docs for the associated macro to see what a given function does.
+ */
+
 constexpr uint16_t blt_chr(char c) {
 	return BLT_CHR(c);
 }
