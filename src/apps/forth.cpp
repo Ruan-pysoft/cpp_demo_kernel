@@ -1006,15 +1006,8 @@ const PrimitiveEntry primitives[] = {
 
 			const int32_t word_idx = search_word(&state.line[word], len);
 			if (word_idx != -1) {
-				state.interp.code = {
-					.pos = state.words[word_idx].code_pos,
-					.idx = 0,
-					.len = state.words[word_idx].code_len,
-				};
-				void run_compiled(const char *);
-
 				for (uint32_t i = 0; i < n; ++i) {
-					run_compiled(state.words[word_idx].name);
+					run_word(word_idx);
 					if (state.interp.err) break;
 				}
 
@@ -1206,20 +1199,11 @@ RawFunction repeat = { "rep_and", []() {
 		}
 		const uint32_t word_idx = state.code[state.interp.code.pos + state.interp.code.idx].idx;
 		++state.interp.code.idx;
-		const Word &word = state.words[word_idx];
-		const auto save_state = state.interp.code;
 
-		void run_compiled(const char*);
 		for (uint32_t i = 0; i < n; ++i) {
-			state.interp.code = CodePos {
-				.pos = word.code_pos,
-				.idx = 0,
-				.len = word.code_len
-			};
-			run_compiled(word.name);
+			run_word(word_idx);
 			if (state.interp.err) break;
 		}
-		state.interp.code = save_state;
 
 		if (!state.interp.err) {
 			check_stack_cap("rep_and", 1);
@@ -1333,6 +1317,14 @@ Maybe<uint32_t> compile_raw_func(RawFunction *func) {
 #endif
 void run_word(uint32_t index) {
 	const auto &word = state.words[index];
+
+	const auto save_state = state.interp.code;
+	state.interp.code = {
+		.pos = word.code_pos,
+		.idx = 0,
+		.len = word.code_len,
+	};
+
 	TRACE("[.%s]", word.name);
 	while (state.interp.code.idx < state.interp.code.len && state.interp.err == NULL) {
 		const auto value = Value::read_compiled(state.interp.code);
@@ -1354,6 +1346,8 @@ void run_word(uint32_t index) {
 
 		state.interp.err_handled = true;
 	}
+
+	state.interp.code = save_state;
 }
 #undef TRACE
 void run_primitive(uint32_t index) {
@@ -1508,82 +1502,6 @@ int32_t search_word(const char *name, size_t name_len) {
 	return -1;
 }
 
-#ifdef TRACING
-#define TRACE(...) printf(__VA_ARGS__)
-#else
-#define TRACE(...)
-#endif
-void run_compiled(const char *word_name) {
-	TRACE("[(%s]", word_name);
-	while (state.interp.code.idx < state.interp.code.len && state.interp.err == NULL) {
-		const CodeElem head = state.code[state.interp.code.pos + state.interp.code.idx];
-		++state.interp.code.idx;
-		if (head.prefix == CodeElemPrefix::Literal) {
-			if (state.interp.code.idx >= state.interp.code.len) {
-				state.interp.err = "Error in compiled word: expected literal value";
-				break;
-			}
-			if (state.stack_len >= STACK_SIZE) {
-				state.interp.err = "Error at number literal: stack length should be < STACK_SIZE";
-				break;
-			}
-			const uint32_t lit = state.code[state.interp.code.pos + state.interp.code.idx].lit;
-			++state.interp.code.idx;
-			TRACE("<(%u:%u>", lit, state.stack_len);
-			stack_push(lit);
-			TRACE("<%u:%u)>", lit, state.stack_len);
-		} else if (head.prefix == CodeElemPrefix::Word) {
-			if (state.interp.code.idx >= state.interp.code.len) {
-				state.interp.err = "Error in compiled word: expected word index";
-				break;
-			}
-			const uint32_t word_idx = state.code[state.interp.code.pos + state.interp.code.idx].idx;
-			++state.interp.code.idx;
-			const Word &word = state.words[word_idx];
-			const auto save_state = state.interp.code;
-
-			state.interp.code = CodePos {
-				.pos = word.code_pos,
-				.idx = 0,
-				.len = word.code_len
-			};
-			TRACE("<(%s!%u>", word.name, state.stack_len);
-			run_compiled(word.name);
-			TRACE("<%s!%u)>", word.name, state.stack_len);
-			state.interp.code = save_state;
-		} else if (head.prefix == CodeElemPrefix::RawFunc) {
-			if (state.interp.code.idx >= state.interp.code.len) {
-				state.interp.err = "Error in compiled word: expected raw function pointer";
-				break;
-			}
-			const RawFunction *ptr = state.code[state.interp.code.pos + state.interp.code.idx].fun;
-			++state.interp.code.idx;
-			TRACE("<(%s^%u>", ptr->name, state.stack_len);
-			ptr->func();
-			TRACE("<%s^%u)>", ptr->name, state.stack_len);
-		} else {
-			const uint32_t prim_idx = head.idx;
-			const PrimitiveEntry &prim = primitives[prim_idx];
-			TRACE("<(%s$%u>", prim.name, state.stack_len);
-			prim.func();
-			TRACE("<%s$%u)>", prim.name, state.stack_len);
-		}
-	}
-	TRACE("[%s)]", word_name);
-
-	if (state.interp.err) {
-		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
-
-		if (!state.interp.err_handled) {
-			putchar('\n');
-			puts(state.interp.err);
-		}
-		printf("@ compiled word `%s`\n", word_name);
-
-		state.interp.err_handled = true;
-	}
-}
-
 void input_key(ps2::Key, char ch, bool capitalise) {
 	if (state.line_len == MAX_LINE_LEN) {
 		state.has_inp_err = true;
@@ -1651,7 +1569,7 @@ void interpret_line() {
 					.idx = *(uint32_t*)&word_idx,
 				};
 			} else {
-				run_compiled(state.words[word_idx].name);
+				run_word(word_idx);
 			}
 
 			continue;
