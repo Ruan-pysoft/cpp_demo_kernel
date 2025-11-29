@@ -111,6 +111,118 @@ struct State {
 static State state{};
 bool forth_running = false;
 
+template<typename T>
+struct Maybe {
+	bool has;
+	T value;
+
+	Maybe() : has(false) { }
+	Maybe(T val) : has(true), value(val) { }
+
+	inline T get() const {
+		assert(has);
+		return value;
+	}
+	inline void set(T new_val) {
+		has = true;
+		value = new_val;
+	}
+	inline void reset() {
+		has = false;
+	}
+};
+
+Maybe<uint32_t> compile_word(uint32_t index);
+Maybe<uint32_t> compile_primitive(uint32_t index);
+Maybe<uint32_t> compile_number(uint32_t num);
+Maybe<uint32_t> compile_raw_func(RawFunction *func);
+void run_word(uint32_t index);
+void run_primitive(uint32_t index);
+void run_number(uint32_t num);
+void run_raw_func(RawFunction *func);
+Maybe<uint32_t> parse_word(const char *str, size_t len);
+Maybe<uint32_t> parse_primitive(const char *str, size_t len);
+Maybe<uint32_t> parse_number(const char *str, size_t len);
+Maybe<uint32_t> read_compiled_word(CodePos &pos);
+Maybe<uint32_t> read_compiled_primitive(CodePos &pos);
+Maybe<uint32_t> read_compiled_number(CodePos &pos);
+Maybe<RawFunction *> read_compiled_raw_func(CodePos &pos);
+
+enum class ValueType {
+	Word,
+	Primitive,
+	Number,
+	RawFunction,
+};
+struct Value {
+	ValueType type;
+	union {
+		uint32_t word;
+		uint32_t primitive;
+		uint32_t number;
+		RawFunction *raw_function;
+	};
+
+	static Maybe<Value> parse(const char *str, size_t len) {
+		const auto word = parse_word(str, len);
+		if (word.has) return { {
+			.type = ValueType::Word,
+			.word = word.get(),
+		} };
+		const auto primitive = parse_primitive(str, len);
+		if (primitive.has) return { {
+			.type = ValueType::Primitive,
+			.primitive = primitive.get(),
+		} };
+		const auto number = parse_number(str, len);
+		if (number.has) return { {
+			.type = ValueType::Number,
+			.number = number.get(),
+		} };
+		return {};
+	}
+	static Maybe<Value> read_compiled(CodePos &pos) {
+		const auto word = read_compiled_word(pos);
+		if (word.has) return { {
+			.type = ValueType::Word,
+			.word = word.get(),
+		} };
+		const auto primitive = read_compiled_primitive(pos);
+		if (primitive.has) return { {
+			.type = ValueType::Primitive,
+			.primitive = primitive.get(),
+		} };
+		const auto number = read_compiled_number(pos);
+		if (number.has) return { {
+			.type = ValueType::Number,
+			.number = number.get(),
+		} };
+		const auto raw_func = read_compiled_raw_func(pos);
+		if (raw_func.has) return { {
+			.type = ValueType::RawFunction,
+			.raw_function = raw_func.get(),
+		} };
+		return {};
+	}
+
+	inline Maybe<uint32_t> compile() const {
+		switch (type) {
+			case ValueType::Word: return compile_word(word);
+			case ValueType::Primitive: return compile_primitive(primitive);
+			case ValueType::Number: return compile_number(number);
+			case ValueType::RawFunction: return compile_raw_func(raw_function);
+		}
+	}
+	inline void run() const {
+		switch (type) {
+			case ValueType::Word: run_word(word); break;
+			case ValueType::Primitive: run_primitive(primitive); break;
+			case ValueType::Number: run_number(number); break;
+			case ValueType::RawFunction: run_raw_func(raw_function); break;
+		}
+	}
+};
+
 static inline void stack_push(uint32_t val) {
 	// WARN: I assume here that there is space on the stack, without verifying the fact!
 	state.stack[state.stack_len++] = val;
@@ -142,7 +254,7 @@ int32_t search_word(const char *name, size_t name_len);
 #define check_stack_len_lt(fun, expr) if (state.stack_len >= (expr)) error_fun(fun, "stack length should be < " #expr)
 #define check_stack_len_ge(fun, expr) if (state.stack_len < (expr)) error_fun(fun, "stack length should be >= " #expr)
 #define check_stack_cap(fun, expr) if (state.stack_len + (expr) >= STACK_SIZE) error_fun(fun, "stack capacity should be at least " #expr)
-#define check_code_len(fun, len) if (state.code_len + 2 > CODE_BUF_SIZE) error_fun(fun, "not enough space to generate code for user word")
+#define check_code_len(fun, len) if (state.code_len + (len) > CODE_BUF_SIZE) error_fun(fun, "not enough space to generate code for user word")
 RawFunction print_raw = { "<internal:print_raw>", []() {
 	check_stack_len_ge("<internal:print_raw>", 1);
 	const char *str = reinterpret_cast<const char*>(stack_pop());
@@ -1145,6 +1257,212 @@ RawFunction repeat = { "rep_and", []() {
 
 #undef error_fun
 #undef error
+
+Maybe<uint32_t> compile_word(uint32_t index) {
+	if (state.code_len + 2 > CODE_BUF_SIZE) {
+		state.interp.err = "not enough space to compile word";
+		return {};
+	}
+
+	state.code[state.code_len++] = {
+		.prefix = CodeElemPrefix::Word,
+	};
+	state.code[state.code_len++] = {
+		.idx = index,
+	};
+
+	return 2;
+}
+Maybe<uint32_t> compile_primitive(uint32_t index) {
+	const PrimitiveEntry &prim = primitives[index];
+
+	if (prim.immediate) {
+		const uint32_t curr = state.code_len;
+		prim.func();
+		if (state.interp.err) {
+			state.code_len = curr;
+			return {};
+		} else return state.code_len - curr;
+	}
+
+	if (state.code_len + 1 > CODE_BUF_SIZE) {
+		state.interp.err = "not enough space to compile primitive";
+		return {};
+	}
+
+	state.code[state.code_len++] = {
+		.idx = index,
+	};
+
+	return 1;
+}
+Maybe<uint32_t> compile_number(uint32_t num) {
+	if (state.code_len + 2 > CODE_BUF_SIZE) {
+		state.interp.err = "not enough space to compile number";
+		return {};
+	}
+
+	state.code[state.code_len++] = {
+		.prefix = CodeElemPrefix::Literal,
+	};
+	state.code[state.code_len++] = {
+		.lit = num,
+	};
+
+	return 2;
+}
+Maybe<uint32_t> compile_raw_func(RawFunction *func) {
+	if (state.code_len + 2 > CODE_BUF_SIZE) {
+		state.interp.err = "not enough space to compile internal function";
+		return {};
+	}
+
+	state.code[state.code_len++] = {
+		.prefix = CodeElemPrefix::RawFunc,
+	};
+	state.code[state.code_len++] = {
+		.fun = func,
+	};
+
+	return 2;
+}
+#ifdef TRACING
+#define TRACE(...) printf(__VA_ARGS__)
+#else
+#define TRACE(...)
+#endif
+void run_word(uint32_t index) {
+	const auto &word = state.words[index];
+	TRACE("[.%s]", word.name);
+	while (state.interp.code.idx < state.interp.code.len && state.interp.err == NULL) {
+		const auto value = Value::read_compiled(state.interp.code);
+		if (value.has) value.get().run();
+		else {
+			state.interp.err = "Error in compiled word: failed to read valid code";
+		}
+	}
+	TRACE("[%s.]", word.name);
+
+	if (state.interp.err) {
+		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
+
+		if (!state.interp.err_handled) {
+			putchar('\n');
+			puts(state.interp.err);
+		}
+		printf("@ compiled word `%s`\n", word.name);
+
+		state.interp.err_handled = true;
+	}
+}
+#undef TRACE
+void run_primitive(uint32_t index) {
+	primitives[index].func();
+}
+void run_number(uint32_t num) {
+	if (state.stack_len + 1 > STACK_SIZE) {
+		state.interp.err = "not enough stack space to push number";
+		return;
+	}
+
+	stack_push(num);
+}
+void run_raw_func(RawFunction *func) {
+	func->func();
+}
+Maybe<uint32_t> parse_word(const char *str, size_t len) {
+	if (len == 0) return {};
+
+	uint32_t i = state.words_len;
+	while (i --> 0) {
+		if (strlen(state.words[i].name) != len) continue;
+
+		bool matches = true;
+		for (size_t j = 0; j < len; ++j) {
+			if (state.words[i].name[j] != str[j]) {
+				matches = false;
+				break;
+			}
+		}
+
+		if (matches) {
+			return i;
+		}
+	}
+
+	return {};
+}
+Maybe<uint32_t> parse_primitive(const char *str, size_t len) {
+	if (len == 0) return {};
+
+	for (uint32_t i = 0; i < primitives_len; ++i) {
+		if (strlen(primitives[i].name) != len) continue;
+
+		bool matches = true;
+		for (size_t j = 0; j < len; ++j) {
+			if (primitives[i].name[j] != str[j]) {
+				matches = false;
+				break;
+			}
+		}
+
+		if (matches) {
+			return i;
+		}
+	}
+
+	return {};
+}
+Maybe<uint32_t> parse_number(const char *str, size_t len) {
+	uint32_t res = 0;
+	for (size_t i = 0; i < len; ++i) {
+		const uint32_t prev = res;
+		if (str[i] < '0' || str[i] > '9') return {};
+
+		res *= 10;
+		res += str[i] - '0';
+
+		if (res < prev) {
+			// overflow detected!
+			// TODO: do something?
+		}
+	}
+	return res;
+}
+Maybe<uint32_t> read_compiled_word(CodePos &pos) {
+	if (pos.idx + 2 > pos.len) return {};
+	const CodeElemPrefix pref = state.code[pos.pos + pos.idx].prefix;
+	if (pref != CodeElemPrefix::Word) return {};
+	const uint32_t res = state.code[pos.pos + pos.idx + 1].idx;
+	pos.idx += 2;
+	return res;
+}
+Maybe<uint32_t> read_compiled_primitive(CodePos &pos) {
+	if (pos.idx + 1 > pos.len) return {};
+	const CodeElemPrefix pref = state.code[pos.pos + pos.idx].prefix;
+	if (pref == CodeElemPrefix::Literal) return {};
+	if (pref == CodeElemPrefix::Word) return {};
+	if (pref == CodeElemPrefix::RawFunc) return {};
+	const uint32_t res = state.code[pos.pos + pos.idx].idx;
+	pos.idx += 1;
+	return res;
+}
+Maybe<uint32_t> read_compiled_number(CodePos &pos) {
+	if (pos.idx + 2 > pos.len) return {};
+	const CodeElemPrefix pref = state.code[pos.pos + pos.idx].prefix;
+	if (pref != CodeElemPrefix::Literal) return {};
+	const uint32_t res = state.code[pos.pos + pos.idx + 1].lit;
+	pos.idx += 2;
+	return res;
+}
+Maybe<RawFunction *> read_compiled_raw_func(CodePos &pos) {
+	if (pos.idx + 2 > pos.len) return {};
+	const CodeElemPrefix pref = state.code[pos.pos + pos.idx].prefix;
+	if (pref != CodeElemPrefix::RawFunc) return {};
+	RawFunction *const res = state.code[pos.pos + pos.idx + 1].fun;
+	pos.idx += 2;
+	return res;
+}
 
 int32_t search_primitive(const char *name, size_t name_len) {
 	if (name_len == 0) return -1;
