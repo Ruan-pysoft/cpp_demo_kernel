@@ -241,8 +241,6 @@ static inline uint32_t &stack_get(size_t nth = 1) {
 }
 
 void get_word();
-int32_t search_primitive(const char *name, size_t name_len);
-int32_t search_word(const char *name, size_t name_len);
 #define error(msg) do { \
 		state.interp.err = msg; \
 		return; \
@@ -630,64 +628,42 @@ const PrimitiveEntry primitives[] = {
 			error_fun("help", "expected following word");
 		}
 
-		const int32_t word_idx = search_word(
+		const auto word_idx = parse_word(
 			&state.line[state.interp.word.pos],
 			state.interp.word.len
 		);
-		if (word_idx != -1 && state.compiling) {
+		if (word_idx.has && state.compiling) {
 			check_code_len("help", 4);
 
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = reinterpret_cast<uint32_t>(state.words[word_idx].desc),
-			};
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::RawFunc,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.fun = &print_raw,
-			};
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(state.words[word_idx.get()].desc)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
 
 			return;
-		} else if (word_idx != -1) {
-			printf(
-				"`%s`: %s",
-				state.words[word_idx].name,
-				state.words[word_idx].desc
-			);
+		} else if (word_idx.has) {
+			const auto &word = state.words[word_idx.get()];
+			printf("`%s`: %s", word.name, word.desc);
 
 			return;
 		}
 
-		const int32_t prim_idx = search_primitive(
+		const auto prim_idx = parse_primitive(
 			&state.line[state.interp.word.pos],
 			state.interp.word.len
 		);
-		if (prim_idx != -1 && state.compiling) {
+		if (prim_idx.has && state.compiling) {
 			check_code_len("help", 4);
 
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = reinterpret_cast<uint32_t>(primitives[prim_idx].desc),
-			};
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::RawFunc,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.fun = &print_raw,
-			};
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(primitives[prim_idx.get()].desc)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
 
 			return;
-		} else if (prim_idx != -1) {
-			printf(
-				"`%s`: %s",
-				primitives[prim_idx].name,
-				primitives[prim_idx].desc
-			);
+		} else if (prim_idx.has) {
+			const auto &prim = primitives[prim_idx.get()];
+			printf("`%s`: %s", prim.name, prim.desc);
 
 			return;
 		}
@@ -700,87 +676,53 @@ const PrimitiveEntry primitives[] = {
 			error_fun("def", "expected following word");
 		}
 
-		const int32_t word_idx = search_word(
+		const auto word_idx = parse_word(
 			&state.line[state.interp.word.pos],
 			state.interp.word.len
 		);
-		if (word_idx != -1 && state.compiling) {
+		if (word_idx.has && state.compiling) {
 			check_code_len("def", 4);
 
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = *(uint32_t*)&word_idx,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::RawFunc,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.fun = &raw_print_definition,
-			};
+			assert(compile_number(word_idx.get()).get() == 2);
+			assert(compile_raw_func(&raw_print_definition).get() == 2);
 
 			return;
-		} else if (word_idx != -1) {
-			print_definition(word_idx);
+		} else if (word_idx.has) {
+			print_definition(word_idx.get());
 
 			return;
 		}
 
-		const int32_t prim_idx = search_primitive(
+		const auto prim_idx = parse_primitive(
 			&state.line[state.interp.word.pos],
 			state.interp.word.len
 		);
-		if (prim_idx != -1 && state.compiling) {
+		if (prim_idx.has && state.compiling) {
 			check_code_len("def", 12);
 
 			const char *s0 = "<built-in primitive `";
 			const char *s1 = "`>";
 
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = reinterpret_cast<uint32_t>(s0),
-			};
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::RawFunc,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.fun = &print_raw,
-			};
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(s0)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
 
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = reinterpret_cast<uint32_t>(primitives[prim_idx].name),
-			};
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::RawFunc,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.fun = &print_raw,
-			};
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(primitives[prim_idx.get()].name)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
 
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = reinterpret_cast<uint32_t>(s1),
-			};
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::RawFunc,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.fun = &print_raw,
-			};
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(s1)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
 
 			return;
-		} else if (prim_idx != -1) {
+		} else if (prim_idx.has) {
 			printf(
 				"<built-in primitive `%s`>",
-				primitives[prim_idx].name
+				primitives[prim_idx.get()].name
 			);
 
 			return;
@@ -1002,12 +944,10 @@ const PrimitiveEntry primitives[] = {
 			get_word();
 			if (len == 0) error_fun("rep_and", "expected following word");
 
-			// TODO: factor these out into something like run_word(uint32_t), run_prim(uint32_t), and parse_num(...)
-
-			const int32_t word_idx = search_word(&state.line[word], len);
-			if (word_idx != -1) {
+			const auto value = Value::parse(&state.line[word], len);
+			if (value.has) {
 				for (uint32_t i = 0; i < n; ++i) {
-					run_word(word_idx);
+					value.get().run();
 					if (state.interp.err) break;
 				}
 
@@ -1015,64 +955,17 @@ const PrimitiveEntry primitives[] = {
 					check_stack_cap("rep_and", 1);
 					stack_push(n);
 				}
-
-				return;
-			}
-
-			const int32_t prim_idx = search_primitive(&state.line[word], len);
-			if (prim_idx != -1) {
-				for (uint32_t i = 0; i < n; ++i) {
-					primitives[prim_idx].func();
-					if (state.interp.err) break;
-				}
-
-				if (!state.interp.err) {
-					check_stack_cap("rep_and", 1);
-					stack_push(n);
-				}
-
-				return;
-			}
-
-			bool is_number = true;
-			uint32_t number = 0;
-			for (size_t i = 0; i < len; ++i) {
-				const char ch = state.line[word+i];
-				if (ch < '0' || ch > '9') {
-					is_number = false;
-					break;
-				} else {
-					number *= 10;
-					number += ch - '0';
-				}
-			}
-
-			if (is_number) {
-				check_stack_cap("rep_and", n);
-				for (uint32_t i = 0; i < n; ++i) {
-					stack_push(number);
-				}
-
-				check_stack_cap("rep_and", 1);
-				stack_push(n);
 			} else {
 				error_fun("rep_and", "undefined word");
 			}
 		} else {
 			check_code_len("rep_and", 2);
 
-			state.code[state.code_len++] = {
-				.prefix = CodeElemPrefix::RawFunc,
-			};
-			state.code[state.code_len++] = {
-				.fun = &repeat,
-			};
+			assert(compile_raw_func(&repeat).get() == 2);
 		}
 	}, true },
 	{ "rep", "n -- ??? ; repeat the next word n times", []() {
-		primitives[search_primitive("rep_and", 7)].func();
-
-		// TODO: factor these out into something like compile_word(uint32_t), compile_prim(uint32_t), and compile_num(...)
+		primitives[parse_primitive("rep_and", 7).get()].func();
 
 		if (state.compiling) {
 			// TODO: when compiling, check that there's enough code space available
@@ -1083,62 +976,18 @@ const PrimitiveEntry primitives[] = {
 			get_word();
 			if (len == 0) error_fun("rep", "expected following word");
 
-			const int32_t word_idx = search_word(&state.line[word], len);
-			const int32_t prim_idx = search_primitive(&state.line[word], len);
-			bool is_number = true;
-			uint32_t number = 0;
+			const auto value = Value::parse(&state.line[word], len);
+			if (value.has) {
+				value.get().compile();
 
-			if (word_idx != -1) {
-				state.code[state.code_len++] = CodeElem {
-					.prefix = CodeElemPrefix::Word,
-				};
-				state.code[state.code_len++] = CodeElem {
-					.idx = *(uint32_t*)&word_idx,
-				};
+				check_code_len("rep", 1);
 
-				goto compiled_next;
-			}
-
-			if (prim_idx != -1) {
-				if (primitives[prim_idx].immediate) {
-					primitives[prim_idx].func();
-				} else {
-					state.code[state.code_len++] = CodeElem {
-						.idx = *(uint32_t*)&prim_idx,
-					};
-				}
-
-				goto compiled_next;
-			}
-
-			for (size_t i = 0; i < len; ++i) {
-				const char ch = state.line[word+i];
-				if (ch < '0' || ch > '9') {
-					is_number = false;
-					break;
-				} else {
-					number *= 10;
-					number += ch - '0';
-				}
-			}
-
-			if (is_number) {
-				state.code[state.code_len++] = CodeElem {
-					.prefix = CodeElemPrefix::Literal,
-				};
-				state.code[state.code_len++] = CodeElem {
-					.lit = number,
-				};
+				assert(compile_primitive(
+					parse_primitive("drop", 4).get()
+				).get() == 1);
 			} else {
 				error_fun("rep", "undefined word");
 			}
-
-		compiled_next:
-			check_code_len("rep", 1);
-
-			state.code[state.code_len++] = {
-				.idx = (uint32_t)search_primitive("drop", 4),
-			};
 		} else {
 			check_stack_len_ge("rep", 1);
 			stack_pop();
@@ -1155,19 +1004,26 @@ void print_definition(uint32_t word_idx) {
 		state.words[word_idx].desc
 	);
 	// no checking as to validity
-	for (size_t ci = state.words[word_idx].code_pos; ci < state.words[word_idx].code_pos + state.words[word_idx].code_len; ++ci) {
-		const CodeElem head = state.code[ci];
-		if (head.prefix == CodeElemPrefix::Literal) {
-			++ci;
-			printf(" %u", state.code[ci].lit);
-		} else if (head.prefix == CodeElemPrefix::Word) {
-			++ci;
-			printf(" %s", state.words[state.code[ci].lit].name);
-		} else if (head.prefix == CodeElemPrefix::RawFunc) {
-			++ci;
-			printf(" %s", state.code[ci].fun->name);
-		} else {
-			printf(" %s", primitives[head.idx]);
+	CodePos pos = {
+		.pos = state.words[word_idx].code_pos,
+		.idx = 0,
+		.len = state.words[word_idx].code_len,
+	};
+	while (pos.idx < pos.len) {
+		const auto value = Value::read_compiled(pos).get();
+		switch (value.type) {
+			case ValueType::Word: {
+				printf(" %s", state.words[value.word].name);
+			} break;
+			case ValueType::Primitive: {
+				printf(" %s", primitives[value.primitive].name);
+			} break;
+			case ValueType::Number: {
+				printf(" %u", value.number);
+			} break;
+			case ValueType::RawFunction: {
+				printf(" %s", value.raw_function->name);
+			} break;
 		}
 	}
 	printf(" ;");
@@ -1177,65 +1033,17 @@ RawFunction repeat = { "rep_and", []() {
 	check_stack_len_ge("rep_and", 1);
 	const size_t n = stack_pop();
 
-	// TODO: factor these out into something like run_compiled_op(const char *)
-	const CodeElem head = state.code[state.interp.code.pos + state.interp.code.idx];
-	++state.interp.code.idx;
-	if (head.prefix == CodeElemPrefix::Literal) {
-		if (state.interp.code.idx >= state.interp.code.len) {
-			error_fun("rep_and", "expected literal value");
-		}
-		check_stack_cap("rep_and", n);
-		const uint32_t lit = state.code[state.interp.code.pos + state.interp.code.idx].lit;
-		++state.interp.code.idx;
+	const auto value = Value::read_compiled(state.interp.code);
+	if (value.has) {
 		for (uint32_t i = 0; i < n; ++i) {
-			stack_push(lit);
-		}
-
-		check_stack_cap("rep_and", 1);
-		stack_push(n);
-	} else if (head.prefix == CodeElemPrefix::Word) {
-		if (state.interp.code.idx >= state.interp.code.len) {
-			error_fun("rep_and", "expected word index");
-		}
-		const uint32_t word_idx = state.code[state.interp.code.pos + state.interp.code.idx].idx;
-		++state.interp.code.idx;
-
-		for (uint32_t i = 0; i < n; ++i) {
-			run_word(word_idx);
-			if (state.interp.err) break;
+			value.get().run();
 		}
 
 		if (!state.interp.err) {
-			check_stack_cap("rep_and", 1);
-			stack_push(n);
-		}
-	} else if (head.prefix == CodeElemPrefix::RawFunc) {
-		if (state.interp.code.idx >= state.interp.code.len) {
-			error_fun("rep_and", "expected raw function pointer");
-		}
-		const RawFunction *ptr = state.code[state.interp.code.pos + state.interp.code.idx].fun;
-		++state.interp.code.idx;
-		for (uint32_t i = 0; i < n; ++i) {
-			ptr->func();
-			if (state.interp.err) break;
-		}
-
-		if (!state.interp.err) {
-			check_stack_cap("rep_and", 1);
 			stack_push(n);
 		}
 	} else {
-		const uint32_t prim_idx = head.idx;
-		const PrimitiveEntry &prim = primitives[prim_idx];
-		for (uint32_t i = 0; i < n; ++i) {
-			prim.func();
-			if (state.interp.err) break;
-		}
-
-		if (!state.interp.err) {
-			check_stack_cap("rep_and", 1);
-			stack_push(n);
-		}
+		error_fun("rep_and", "expected value");
 	}
 } };
 
@@ -1458,50 +1266,6 @@ Maybe<RawFunction *> read_compiled_raw_func(CodePos &pos) {
 	return res;
 }
 
-int32_t search_primitive(const char *name, size_t name_len) {
-	if (name_len == 0) return -1;
-
-	for (uint32_t i = 0; i < primitives_len; ++i) {
-		if (strlen(primitives[i].name) != name_len) continue;
-
-		bool matches = true;
-		for (size_t j = 0; j < name_len; ++j) {
-			if (primitives[i].name[j] != name[j]) {
-				matches = false;
-				break;
-			}
-		}
-
-		if (matches) {
-			return i;
-		}
-	}
-
-	return -1;
-}
-int32_t search_word(const char *name, size_t name_len) {
-	if (name_len == 0) return -1;
-
-	uint32_t i = state.words_len;
-	while (i --> 0) {
-		if (strlen(state.words[i].name) != name_len) continue;
-
-		bool matches = true;
-		for (size_t j = 0; j < name_len; ++j) {
-			if (state.words[i].name[j] != name[j]) {
-				matches = false;
-				break;
-			}
-		}
-
-		if (matches) {
-			return i;
-		}
-	}
-
-	return -1;
-}
-
 void input_key(ps2::Key, char ch, bool capitalise) {
 	if (state.line_len == MAX_LINE_LEN) {
 		state.has_inp_err = true;
@@ -1549,70 +1313,16 @@ void interpret_line() {
 	size_t &word = state.interp.word.pos;
 	size_t &len = state.interp.word.len;
 
-	// TODO: when compiling, check that there's enough code space available
 	while (word < state.line_len && state.interp.err == NULL) {
 		get_word();
 		if (len == 0) break;
 
-		const int32_t word_idx = search_word(&state.line[word], len);
-		if (word_idx != -1) {
-			state.interp.code = {
-				.pos = state.words[word_idx].code_pos,
-				.idx = 0,
-				.len = state.words[word_idx].code_len,
-			};
+		const auto value = Value::parse(&state.line[word], len);
+		if (value.has) {
 			if (state.compiling) {
-				state.code[state.code_len++] = CodeElem {
-					.prefix = CodeElemPrefix::Word,
-				};
-				state.code[state.code_len++] = CodeElem {
-					.idx = *(uint32_t*)&word_idx,
-				};
+				value.get().compile();
 			} else {
-				run_word(word_idx);
-			}
-
-			continue;
-		}
-
-		const int32_t prim_idx = search_primitive(&state.line[word], len);
-		if (prim_idx != -1) {
-			if (state.compiling && !primitives[prim_idx].immediate) {
-				state.code[state.code_len++] = CodeElem {
-					.idx = *(uint32_t*)&prim_idx,
-				};
-			} else {
-				primitives[prim_idx].func();
-			}
-
-			continue;
-		}
-
-		bool is_number = true;
-		uint32_t number = 0;
-		for (size_t i = 0; i < len; ++i) {
-			const char ch = state.line[word+i];
-			if (ch < '0' || ch > '9') {
-				is_number = false;
-				break;
-			} else {
-				number *= 10;
-				number += ch - '0';
-			}
-		}
-
-		if (is_number) {
-			if (state.stack_len >= STACK_SIZE) {
-				state.interp.err = "Error at number literal: stack length should be < STACK_SIZE";
-			} else if (state.compiling) {
-				state.code[state.code_len++] = CodeElem {
-					.prefix = CodeElemPrefix::Literal,
-				};
-				state.code[state.code_len++] = CodeElem {
-					.lit = number,
-				};
-			} else {
-				state.stack[state.stack_len++] = number;
+				value.get().run();
 			}
 		} else {
 			state.interp.err = "Error: Undefined word";
