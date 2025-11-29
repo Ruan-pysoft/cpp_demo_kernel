@@ -100,6 +100,7 @@ struct State {
 	bool has_inp_err = false;
 	uint32_t inp_err_until = 0;
 	bool compiling = false;
+	int skip = 0;
 	InterpreterState interp;
 	CompilerState comp;
 
@@ -136,6 +137,7 @@ Maybe<uint32_t> compile_word(uint32_t index);
 Maybe<uint32_t> compile_primitive(uint32_t index);
 Maybe<uint32_t> compile_number(uint32_t num);
 Maybe<uint32_t> compile_raw_func(RawFunction *func);
+void run_compiled_section(uint32_t len);
 void run_word(uint32_t index);
 void run_primitive(uint32_t index);
 void run_number(uint32_t num);
@@ -211,6 +213,7 @@ struct Value {
 			case ValueType::Primitive: return compile_primitive(primitive);
 			case ValueType::Number: return compile_number(number);
 			case ValueType::RawFunction: return compile_raw_func(raw_function);
+			default: assert(false && "unreachable");
 		}
 	}
 	inline void run() const {
@@ -269,19 +272,6 @@ RawFunction recurse = { "rec", []() {
 RawFunction rf_return = { "ret", []() {
 	state.interp.code.idx = state.interp.code.len;
 } };
-RawFunction do_if = { "?", []() {
-	check_stack_len_ge("?", 1);
-	if (stack_pop() == 0) {
-		if (state.interp.code.idx < state.interp.code.len) {
-			const CodeElem next = state.code[state.interp.code.pos + state.interp.code.idx];
-			if (next.prefix == CodeElemPrefix::Literal) ++state.interp.code.idx;
-			else if (next.prefix == CodeElemPrefix::Word) ++state.interp.code.idx;
-			else if (next.prefix == CodeElemPrefix::RawFunc) ++state.interp.code.idx;
-		}
-		++state.interp.code.idx;
-	}
-} };
-extern RawFunction repeat;
 const PrimitiveEntry primitives[] = {
 	/* STACK OPERATIONS */
 	{ ".", "-- ; shows the top 16 elements of the stack", []() {
@@ -449,6 +439,10 @@ const PrimitiveEntry primitives[] = {
 		stack_push(0);
 	} },
 	{ "hex", "-- a ; interprets next word as hex number and pushes it", []() {
+		if (!state.compiling && state.skip) {
+			get_word();
+			return;
+		}
 		if (!state.compiling) check_stack_len_lt("hex", STACK_SIZE);
 		get_word();
 		if (state.interp.word.len == 0) {
@@ -486,6 +480,10 @@ const PrimitiveEntry primitives[] = {
 		}
 	}, true },
 	{ "'", "-- a ; interprets next word as short (<= 4 long) string and pushes it", []() {
+		if (!state.compiling && state.skip) {
+			get_word();
+			return;
+		}
 		if (!state.compiling) check_stack_len_lt("'", STACK_SIZE);
 		get_word();
 		if (state.interp.word.len == 0) {
@@ -533,6 +531,20 @@ const PrimitiveEntry primitives[] = {
 	/* STRINGS */
 	{ "\"", "-- ... n ; pushes a string to the top of the stack (data then length)", []() {
 		WordPos &word = state.interp.word;
+
+		if (!state.compiling && state.skip) {
+			get_word();
+
+			while (word.len != 0 && !(word.len == 1 && state.line[word.pos] == '"')) {
+				get_word();
+			}
+
+			if (word.len == 0) {
+				error_fun("\"", "expected closing \" for string");
+			}
+
+			return;
+		}
 
 		size_t start = 0;
 		size_t end = 0;
@@ -623,6 +635,11 @@ const PrimitiveEntry primitives[] = {
 		putchar('\n');
 	} },
 	{ "help", "-- ; prints help text for the next word", []() {
+		if (!state.compiling && state.skip) {
+			get_word();
+			return;
+		}
+
 		get_word();
 		if (state.interp.word.len == 0) {
 			error_fun("help", "expected following word");
@@ -671,6 +688,11 @@ const PrimitiveEntry primitives[] = {
 		error_fun("help", "Couldn't find specified word");
 	}, true },
 	{ "def", "-- ; prints the definition of a given word", []() {
+		if (!state.compiling && state.skip) {
+			get_word();
+			return;
+		}
+
 		get_word();
 		if (state.interp.word.len == 0) {
 			error_fun("def", "expected following word");
@@ -806,6 +828,22 @@ const PrimitiveEntry primitives[] = {
 			error_fun(":", "new words may only be defined while interpreting a line");
 		}
 
+		if (state.skip) {
+			WordPos &word = state.interp.word;
+
+			get_word();
+
+			while (word.len != 0 && !(word.len == 1 && state.line[word.pos] == ';')) {
+				get_word();
+			}
+
+			if (word.len == 0) {
+				error_fun(":", "expected closing ; for word definition");
+			}
+
+			return;
+		}
+
 		get_word();
 		if (state.interp.word.len == 0) {
 			error_fun(":", "expected word name");
@@ -918,23 +956,44 @@ const PrimitiveEntry primitives[] = {
 	}, true },
 	{ "?", "a -- ; only executes the next word if the stack top is nonzero", []() {
 		if (!state.compiling) {
+			if (state.skip) {
+				++state.skip;
+				return;
+			}
+
 			check_stack_len_ge("?", 1);
 
-			if (stack_pop() == 0) get_word();
+			if (stack_pop() == 0) ++state.skip;
 
 			return;
 		}
-		check_code_len("?", 2);
 
-		state.code[state.code_len++] = {
-			.prefix = CodeElemPrefix::RawFunc,
-		};
-		state.code[state.code_len++] = {
-			.fun = &do_if,
-		};
+		check_code_len("?", 4);
+
+		static RawFunction compiled = { "?", []() {
+			const uint32_t next_len = read_compiled_number(state.interp.code).get();
+
+			check_stack_len_ge("?", 1);
+
+			if (stack_pop() == 0) ++state.skip;
+
+			run_compiled_section(next_len);
+		} };
+
+		assert(compile_raw_func(&compiled).get() == 2);
+		assert(compile_number(0).get() == 2);
+		uint32_t &size = state.code[state.code_len-1].lit;
+
+		get_word();
+		size = Value::parse(
+			&state.line[state.interp.word.pos],
+			state.interp.word.len
+		).get().compile().get();
 	}, true },
 	{ "rep_and", "n -- ??? n ; repeat the next word n times, and push n to the stack", []() {
-		if (!state.compiling) {
+		// TODO: redo all of this
+		assert(false);
+		/*if (!state.compiling) {
 			check_stack_len_ge("rep_and", 1);
 			const size_t n = stack_pop();
 
@@ -962,10 +1021,11 @@ const PrimitiveEntry primitives[] = {
 			check_code_len("rep_and", 2);
 
 			assert(compile_raw_func(&repeat).get() == 2);
-		}
+		}*/
 	}, true },
 	{ "rep", "n -- ??? ; repeat the next word n times", []() {
 		primitives[parse_primitive("rep_and", 7).get()].func();
+		if (!state.compiling && state.skip) return;
 
 		if (state.compiling) {
 			// TODO: when compiling, check that there's enough code space available
@@ -1029,7 +1089,7 @@ void print_definition(uint32_t word_idx) {
 	printf(" ;");
 }
 
-RawFunction repeat = { "rep_and", []() {
+/*RawFunction repeat = { "rep_and", []() {
 	check_stack_len_ge("rep_and", 1);
 	const size_t n = stack_pop();
 
@@ -1045,7 +1105,7 @@ RawFunction repeat = { "rep_and", []() {
 	} else {
 		error_fun("rep_and", "expected value");
 	}
-} };
+} };*/
 
 #undef error_fun
 #undef error
@@ -1123,8 +1183,33 @@ Maybe<uint32_t> compile_raw_func(RawFunction *func) {
 #else
 #define TRACE(...)
 #endif
+void run_compiled_section(uint32_t len) {
+	if (!state.compiling && state.skip) {
+		state.interp.code.pos += len;
+		--state.skip;
+		return;
+	}
+
+	const uint32_t begin = state.interp.code.idx;
+	const uint32_t end = begin + len;
+
+	assert(end < state.interp.code.pos + state.interp.code.len); // TODO: proper error reporting
+
+	while (state.interp.code.idx < end && state.interp.err == NULL) {
+		const auto value = Value::read_compiled(state.interp.code);
+		if (value.has) value.get().run();
+		else {
+			state.interp.err = "Error in compiled word: failed to read valid code";
+		}
+	}
+}
 void run_word(uint32_t index) {
 	const auto &word = state.words[index];
+
+	if (state.skip) {
+		--state.skip;
+		return;
+	}
 
 	const auto save_state = state.interp.code;
 	state.interp.code = {
@@ -1134,14 +1219,10 @@ void run_word(uint32_t index) {
 	};
 
 	TRACE("[.%s]", word.name);
-	while (state.interp.code.idx < state.interp.code.len && state.interp.err == NULL) {
-		const auto value = Value::read_compiled(state.interp.code);
-		if (value.has) value.get().run();
-		else {
-			state.interp.err = "Error in compiled word: failed to read valid code";
-		}
-	}
+	run_compiled_section(word.code_len);
 	TRACE("[%s.]", word.name);
+
+	state.interp.code = save_state;
 
 	if (state.interp.err) {
 		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
@@ -1154,14 +1235,20 @@ void run_word(uint32_t index) {
 
 		state.interp.err_handled = true;
 	}
-
-	state.interp.code = save_state;
 }
 #undef TRACE
 void run_primitive(uint32_t index) {
-	primitives[index].func();
+	if (state.skip) {
+		if (primitives[index].immediate) primitives[index].func();
+		--state.skip;
+	} else primitives[index].func();
 }
 void run_number(uint32_t num) {
+	if (state.skip) {
+		--state.skip;
+		return;
+	}
+
 	if (state.stack_len + 1 > STACK_SIZE) {
 		state.interp.err = "not enough stack space to push number";
 		return;
@@ -1170,6 +1257,10 @@ void run_number(uint32_t num) {
 	stack_push(num);
 }
 void run_raw_func(RawFunction *func) {
+	if (state.skip) {
+		--state.skip;
+		return;
+	}
 	func->func();
 }
 Maybe<uint32_t> parse_word(const char *str, size_t len) {
@@ -1416,8 +1507,8 @@ void main() {
 	run_line(": - ( a b -- a-b ) not inc + ;");
 	run_line(": neg ( a -- -a ) 0 swap - ;");
 
-	run_line(": *_under ( a b -- a a*b ) swap dup rot * ;");
-	run_line(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
+	//run_line(": *_under ( a b -- a a*b ) swap dup rot * ;");
+	//run_line(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
 
 	run_line(": != ( a b -- a!=b ) = not ;");
 	run_line(": <= ( a b -- a<=b ) dup rot dup rot < unrot = or ;");
