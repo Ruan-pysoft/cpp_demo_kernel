@@ -1,5 +1,7 @@
 #include "apps/forth.hpp"
 
+#define TRACING
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -650,7 +652,24 @@ const PrimitiveEntry primitives[] = {
 			state.interp.word.len
 		);
 		if (word_idx.has && state.compiling) {
-			check_code_len("help", 4);
+			check_code_len("help", 15);
+
+			const char *s = "`: ";
+
+			assert(compile_number('`').get() == 2);
+			assert(compile_primitive(parse_primitive(
+				"pstr", 4
+			).get()).get() == 1);
+
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(state.words[word_idx.get()].name)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
+
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(s)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
 
 			assert(compile_number(
 				reinterpret_cast<uint32_t>(state.words[word_idx.get()].desc)
@@ -670,7 +689,24 @@ const PrimitiveEntry primitives[] = {
 			state.interp.word.len
 		);
 		if (prim_idx.has && state.compiling) {
-			check_code_len("help", 4);
+			check_code_len("help", 15);
+
+			const char *s = "`: ";
+
+			assert(compile_number('`').get() == 2);
+			assert(compile_primitive(parse_primitive(
+				"pstr", 4
+			).get()).get() == 1);
+
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(primitives[prim_idx.get()].name)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
+
+			assert(compile_number(
+				reinterpret_cast<uint32_t>(s)
+			).get() == 2);
+			assert(compile_raw_func(&print_raw).get() == 2);
 
 			assert(compile_number(
 				reinterpret_cast<uint32_t>(primitives[prim_idx.get()].desc)
@@ -971,6 +1007,7 @@ const PrimitiveEntry primitives[] = {
 		check_code_len("?", 4);
 
 		static RawFunction compiled = { "?", []() {
+			printf("<?");
 			const uint32_t next_len = read_compiled_number(state.interp.code).get();
 
 			check_stack_len_ge("?", 1);
@@ -978,6 +1015,7 @@ const PrimitiveEntry primitives[] = {
 			if (stack_pop() == 0) ++state.skip;
 
 			run_compiled_section(next_len);
+			printf("?>");
 		} };
 
 		assert(compile_raw_func(&compiled).get() == 2);
