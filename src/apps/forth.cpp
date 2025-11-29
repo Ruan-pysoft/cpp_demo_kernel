@@ -1,7 +1,5 @@
 #include "apps/forth.hpp"
 
-#define TRACING
-
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -1007,7 +1005,6 @@ const PrimitiveEntry primitives[] = {
 		check_code_len("?", 4);
 
 		static RawFunction compiled = { "?", []() {
-			printf("<?");
 			const uint32_t next_len = read_compiled_number(state.interp.code).get();
 
 			check_stack_len_ge("?", 1);
@@ -1015,7 +1012,6 @@ const PrimitiveEntry primitives[] = {
 			if (stack_pop() == 0) ++state.skip;
 
 			run_compiled_section(next_len);
-			printf("?>");
 		} };
 
 		assert(compile_raw_func(&compiled).get() == 2);
@@ -1222,12 +1218,6 @@ Maybe<uint32_t> compile_raw_func(RawFunction *func) {
 #define TRACE(...)
 #endif
 void run_compiled_section(uint32_t len) {
-	if (!state.compiling && state.skip) {
-		state.interp.code.pos += len;
-		--state.skip;
-		return;
-	}
-
 	const uint32_t begin = state.interp.code.idx;
 	const uint32_t end = begin + len;
 
@@ -1235,11 +1225,15 @@ void run_compiled_section(uint32_t len) {
 
 	while (state.interp.code.idx < end && state.interp.err == NULL) {
 		const auto value = Value::read_compiled(state.interp.code);
-		if (value.has) value.get().run();
-		else {
+		if (value.has) {
+			if (!state.compiling && state.skip) ++state.skip;
+			value.get().run();
+		} else {
 			state.interp.err = "Error in compiled word: failed to read valid code";
 		}
 	}
+
+	if (!state.compiling && state.skip) --state.skip;
 }
 void run_word(uint32_t index) {
 	const auto &word = state.words[index];
