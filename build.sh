@@ -86,6 +86,8 @@ $CC $CFLAGS -c $SRCDIR/libk/sdk/random.cpp -o $BUILDDIR/sdk/random.o
 OBJS="$OBJS $BUILDDIR/sdk/random.o"
 $CC $CFLAGS -c $SRCDIR/libk/sdk/terminal.cpp -o $BUILDDIR/sdk/terminal.o
 OBJS="$OBJS $BUILDDIR/sdk/terminal.o"
+$CC $CFLAGS -c $SRCDIR/libk/sdk/util.cpp -o $BUILDDIR/sdk/util.o
+OBJS="$OBJS $BUILDDIR/sdk/util.o"
 
 LIBK_OBJS=""
 

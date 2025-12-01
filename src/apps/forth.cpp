@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include <sdk/terminal.hpp>
+#include <sdk/util.hpp>
 
 #include "pit.hpp"
 #include "ps2.hpp"
@@ -112,26 +113,7 @@ struct State {
 static State state{};
 bool forth_running = false;
 
-template<typename T>
-struct Maybe {
-	bool has;
-	T value;
-
-	Maybe() : has(false) { }
-	Maybe(T val) : has(true), value(val) { }
-
-	inline T get() const {
-		assert(has);
-		return value;
-	}
-	inline void set(T new_val) {
-		has = true;
-		value = new_val;
-	}
-	inline void reset() {
-		has = false;
-	}
-};
+using namespace sdk::util;
 
 Maybe<uint32_t> compile_word(uint32_t index);
 Maybe<uint32_t> compile_primitive(uint32_t index);
