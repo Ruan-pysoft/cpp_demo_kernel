@@ -1025,9 +1025,12 @@ const PrimitiveEntry primitives[] = {
 		).get().compile().get();
 	}, true },
 	{ "rep_and", "n -- ??? n ; repeat the next word n times, and push n to the stack", []() {
-		// TODO: redo all of this
-		assert(false);
-		/*if (!state.compiling) {
+		if (!state.compiling) {
+			if (state.skip) {
+				++state.skip;
+				return;
+			}
+
 			check_stack_len_ge("rep_and", 1);
 			const size_t n = stack_pop();
 
@@ -1039,8 +1042,9 @@ const PrimitiveEntry primitives[] = {
 
 			const auto value = Value::parse(&state.line[word], len);
 			if (value.has) {
+				const auto raw_value = value.get();
 				for (uint32_t i = 0; i < n; ++i) {
-					value.get().run();
+					raw_value.run();
 					if (state.interp.err) break;
 				}
 
@@ -1052,36 +1056,55 @@ const PrimitiveEntry primitives[] = {
 				error_fun("rep_and", "undefined word");
 			}
 		} else {
-			check_code_len("rep_and", 2);
+			check_code_len("rep_and", 4);
 
-			assert(compile_raw_func(&repeat).get() == 2);
-		}*/
+			static RawFunction compiled = { "rep_and", []() {
+				const uint32_t next_len = read_compiled_number(state.interp.code).get();
+
+				check_stack_len_ge("rep_and", 1);
+				const size_t n = stack_pop();
+
+				if (n == 0) {
+					++state.skip;
+
+					run_compiled_section(next_len);
+					return;
+				}
+
+				const auto save_state = state.interp.code;
+				for (uint32_t i = 0; i < n; ++i) {
+					state.interp.code = save_state;
+					run_compiled_section(next_len);
+					if (state.interp.err) break;
+				}
+
+				if (!state.interp.err) {
+					check_stack_cap("rep_and", 1);
+					stack_push(n);
+				}
+			} };
+
+			assert(compile_raw_func(&compiled).get() == 2);
+			assert(compile_number(0).get() == 2);
+			uint32_t &size = state.code[state.code_len-1].lit;
+
+			get_word();
+			size = Value::parse(
+				&state.line[state.interp.word.pos],
+				state.interp.word.len
+			).get().compile().get();
+		}
 	}, true },
 	{ "rep", "n -- ??? ; repeat the next word n times", []() {
 		primitives[parse_primitive("rep_and", 7).get()].func();
 		if (!state.compiling && state.skip) return;
 
 		if (state.compiling) {
-			// TODO: when compiling, check that there's enough code space available
+			check_code_len("rep", 1);
 
-			size_t &word = state.interp.word.pos;
-			size_t &len = state.interp.word.len;
-
-			get_word();
-			if (len == 0) error_fun("rep", "expected following word");
-
-			const auto value = Value::parse(&state.line[word], len);
-			if (value.has) {
-				value.get().compile();
-
-				check_code_len("rep", 1);
-
-				assert(compile_primitive(
-					parse_primitive("drop", 4).get()
-				).get() == 1);
-			} else {
-				error_fun("rep", "undefined word");
-			}
+			assert(compile_primitive(
+				parse_primitive("drop", 4).get()
+			).get() == 1);
 		} else {
 			check_stack_len_ge("rep", 1);
 			stack_pop();
@@ -1539,8 +1562,8 @@ void main() {
 	run_line(": - ( a b -- a-b ) not inc + ;");
 	run_line(": neg ( a -- -a ) 0 swap - ;");
 
-	//run_line(": *_under ( a b -- a a*b ) swap dup rot * ;");
-	//run_line(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
+	run_line(": *_under ( a b -- a a*b ) swap dup rot * ;");
+	run_line(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
 
 	run_line(": != ( a b -- a!=b ) = not ;");
 	run_line(": <= ( a b -- a<=b ) dup rot dup rot < unrot = or ;");
