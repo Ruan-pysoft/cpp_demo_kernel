@@ -9,6 +9,8 @@
 
 using namespace sdk::util;
 
+static constexpr size_t PAGER_HEIGHT = vga::HEIGHT-1;
+
 Pager::Pager(const char *text) : text(text), lines() {
 	const size_t text_len = strlen(text);
 	size_t line_begin = 0;
@@ -40,7 +42,7 @@ void Pager::draw() const {
 
 	size_t sub_lines_to_skip = sub_line;
 	size_t line_idx = top_line;
-	size_t visual_lines_to_write = vga::HEIGHT - 1;
+	size_t visual_lines_to_write = PAGER_HEIGHT;
 
 	while (visual_lines_to_write) {
 		if (line_idx >= lines.size()) {
@@ -161,10 +163,14 @@ void Pager::move_up_line() {
 	if (top_line > 0) --top_line;
 }
 void Pager::page_down() {
-	assert(false && "TODO");
+	for (size_t i = 0; i < PAGER_HEIGHT-1; ++i) {
+		move_down_visual();
+	}
 }
 void Pager::page_up() {
-	assert(false && "TODO");
+	for (size_t i = 0; i < PAGER_HEIGHT-1; ++i) {
+		move_up_visual();
+	}
 }
 void Pager::home() {
 	top_line = 0;
