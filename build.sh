@@ -77,6 +77,8 @@ OBJS="$OBJS $BUILDDIR/apps/forth.o"
 
 $CC $CFLAGS -c $SRCDIR/apps/components/menu.cpp -o $BUILDDIR/apps/component-menu.o
 OBJS="$OBJS $BUILDDIR/apps/component-menu.o"
+$CC $CFLAGS -c $SRCDIR/apps/components/pager.cpp -o $BUILDDIR/apps/component-pager.o
+OBJS="$OBJS $BUILDDIR/apps/component-pager.o"
 
 mkdir -p $BUILDDIR/sdk
 
