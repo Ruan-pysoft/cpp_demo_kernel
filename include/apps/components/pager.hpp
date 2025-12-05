@@ -4,9 +4,15 @@
 
 #include "ps2.hpp"
 
+struct Line {
+	size_t pos;
+	size_t len;
+	size_t term_span;
+};
+
 class Pager {
 	const char *text;
-	sdk::util::List<sdk::util::Pair<size_t, size_t>> lines;
+	sdk::util::List<Line> lines;
 	size_t top_line = 0;
 	size_t sub_line = 0;
 public:

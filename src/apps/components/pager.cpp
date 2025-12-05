@@ -16,17 +16,19 @@ Pager::Pager(const char *text) : text(text), lines() {
 	for (i = 0; i < text_len; ++i) {
 		if (text[i] == '\n') {
 			const size_t line_len = i - line_begin;
-			lines.push_back({ line_begin, line_len });
+			const size_t line_span = line_len/vga::WIDTH + !!(line_len%vga::WIDTH);
+			lines.push_back({ line_begin, line_len, line_span });
 			++i; // skip \n
 			while (i < text_len && text[i] == '\n') {
-				lines.push_back({ i, 0 });
+				lines.push_back({ i, 0, 1 });
 				++i;
 			}
 			line_begin = i;
 		}
 	}
 	const size_t line_len = text_len - line_begin;
-	if (line_len) lines.push_back({ line_begin, line_len });
+	const size_t line_span = line_len/vga::WIDTH + !!(line_len%vga::WIDTH);
+	if (line_len) lines.push_back({ line_begin, line_len, line_span });
 }
 
 void Pager::draw() const {
@@ -36,6 +38,7 @@ void Pager::draw() const {
 	term::go_to(0, 0);
 	term::disable_autoscroll();
 
+	size_t sub_lines_to_skip = sub_line;
 	size_t line_idx = top_line;
 	size_t visual_lines_to_write = vga::HEIGHT - 1;
 
@@ -47,27 +50,35 @@ void Pager::draw() const {
 			);
 
 			for (size_t i = 0; i < visual_lines_to_write; ++i) {
-				term::writestring("\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9\xf9");
+				for (size_t j = 0; j < vga::WIDTH; ++j) {
+					term::putbyte(0xf9);
+				}
 			}
 
 			break;
 		}
 
-		const auto &line_pos = lines[line_idx].first;
-		const auto &line_len = lines[line_idx].second;
-		const size_t line_span = line_len == 0 ? 1 : line_len/vga::WIDTH + !!(line_len%vga::WIDTH);
-		const size_t to_write = line_span > visual_lines_to_write ? visual_lines_to_write - 1 : line_span;
+		const auto &line = lines[line_idx];
+		if (line.term_span <= sub_lines_to_skip) {
+			sub_lines_to_skip -= line.term_span;
+			continue;
+		}
+		const size_t term_span = line.term_span - sub_lines_to_skip;
+		const size_t to_write = term_span > visual_lines_to_write
+			? visual_lines_to_write - 1
+			: term_span;
 
 		for (size_t i = 0; i < to_write; ++i) {
-			if (i == line_span-1 && (line_len%vga::WIDTH || line_len == 0)) {
-				term::write(&text[line_pos + i*vga::WIDTH], line_len%vga::WIDTH);
+			const size_t idx = i + sub_lines_to_skip;
+			if (idx == line.term_span-1 && (line.len%vga::WIDTH || line.len == 0)) {
+				term::write(&text[line.pos + idx*vga::WIDTH], line.len%vga::WIDTH);
 				term::putchar('\n');
 			} else {
-				term::write(&text[line_pos + i*vga::WIDTH], vga::WIDTH);
+				term::write(&text[line.pos + idx*vga::WIDTH], vga::WIDTH);
 			}
 		}
 
-		if (line_span > visual_lines_to_write) {
+		if (term_span > visual_lines_to_write) {
 			const auto _ = sdk::ColorSwitch(
 				vga::Color::Black,
 				vga::Color::LightGrey
@@ -78,6 +89,7 @@ void Pager::draw() const {
 
 		++line_idx;
 		visual_lines_to_write -= to_write;
+		sub_lines_to_skip = 0;
 	}
 
 	term::enable_autoscroll();
@@ -127,14 +139,18 @@ void Pager::handle_key(ps2::Event key) {
 }
 
 void Pager::move_down_visual() {
-	sub_line = 0;
-	// TODO: properly implement
-	if (top_line < lines.size()-1) ++top_line;
+	if (sub_line < lines[top_line].term_span-1) ++sub_line;
+	else if (top_line < lines.size()-1) {
+		sub_line = 0;
+		++top_line;
+	}
 }
 void Pager::move_up_visual() {
-	// TODO: properly implement
-	sub_line = 0;
-	if (top_line > 0) --top_line;
+	if (sub_line > 0) --sub_line;
+	else if (top_line > 0) {
+		--top_line;
+		sub_line = lines[top_line].term_span-1;
+	}
 }
 void Pager::move_down_line() {
 	sub_line = 0;
