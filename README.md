@@ -20,6 +20,8 @@ I might try switching over to [nob.h](https://github.com/nob.h) if managing the 
 
 ## Licensing
 
+NB: Note that the copyright of the Bible quotations found in various places in the project as sample text belongs to _die Bybelgenootskap van Suid-Afrika_ (the Bible society of South Africa) and is taken from the Afrikaans 2020 translation. I in no way, shape, or form claim copyright over it, nor does the licensing of my code apply to it. I believe my use of these quotations falls in line with the permissions granted on the page containing the copyright info for the text in my copy of the Bible.
+
 This kernel is set free under the [Unlicense](https://unlicense.org/).
 This means that it is released into the public domain
 for all to use as they see fit.
