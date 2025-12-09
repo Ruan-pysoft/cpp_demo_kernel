@@ -1044,7 +1044,9 @@ const PrimitiveEntry primitives[] = {
 				const auto value = Value::parse(&state.line[word], len);
 				if (value.has) {
 					const auto raw_value = value.get();
+					const auto save_state = state.interp;
 					for (uint32_t i = 0; i < n; ++i) {
+						state.interp = save_state;
 						raw_value.run();
 						if (state.interp.err) break;
 					}
