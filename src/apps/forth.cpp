@@ -1019,15 +1019,18 @@ const PrimitiveEntry primitives[] = {
 			size_t &word = state.interp.word.pos;
 			size_t &len = state.interp.word.len;
 
-			get_word();
-			if (len == 0) error_fun("rep_and", "expected following word");
+			if (n == 0) {
+				++state.skip;
+				while (word < state.line_len && state.interp.err == NULL && state.skip != 0) {
+					get_word();
+					if (len == 0) break; // TODO: should I error here?
 
-			const auto value = Value::parse(&state.line[word], len);
-			if (value.has) {
-				const auto raw_value = value.get();
-				for (uint32_t i = 0; i < n; ++i) {
-					raw_value.run();
-					if (state.interp.err) break;
+					const auto value = Value::parse(&state.line[word], len);
+					if (value.has) {
+						value.get().run();
+					} else {
+						error_fun("rep_and", "undefined word");
+					}
 				}
 
 				if (!state.interp.err) {
@@ -1035,7 +1038,24 @@ const PrimitiveEntry primitives[] = {
 					stack_push(n);
 				}
 			} else {
-				error_fun("rep_and", "undefined word");
+				get_word();
+				if (len == 0) error_fun("rep_and", "expected following word");
+
+				const auto value = Value::parse(&state.line[word], len);
+				if (value.has) {
+					const auto raw_value = value.get();
+					for (uint32_t i = 0; i < n; ++i) {
+						raw_value.run();
+						if (state.interp.err) break;
+					}
+
+					if (!state.interp.err) {
+						check_stack_cap("rep_and", 1);
+						stack_push(n);
+					}
+				} else {
+					error_fun("rep_and", "undefined word");
+				}
 			}
 		} else {
 			check_code_len("rep_and", 4);
@@ -1078,8 +1098,12 @@ const PrimitiveEntry primitives[] = {
 		}
 	}, true },
 	{ "rep", "n -- ??? ; repeat the next word n times", []() {
+		if (!state.compiling && state.skip) {
+			primitives[parse_primitive("rep_and", 7).get()].func();
+			return;
+		}
+
 		primitives[parse_primitive("rep_and", 7).get()].func();
-		if (!state.compiling && state.skip) return;
 
 		if (state.compiling) {
 			check_code_len("rep", 1);
@@ -1534,7 +1558,7 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		memcpy(state.line, (code), state.line_len); \
 		interpret_line(); \
 		state.line_len = 0; \
-	} while (0);
+	} while (0)
 
 void main() {
 	assert(!forth_running);
@@ -1561,6 +1585,13 @@ void main() {
 	term::go_to(0, 0);
 	puts("Enter `guide` for instructions on usage, or `exit` to exit the program.");
 	term::writestring("> ");
+
+	run_line("\" Tests for rep_and: \" print_string");
+	run_line("1 0 rep ? help rep . clear");
+	run_line("0 1 rep ? help rep . clear");
+	run_line(": \255 rep ? help rep ; def \255");
+	run_line("1 0 \255 . clear");
+	run_line("0 1 \255 . clear");
 
 	while (!state.should_quit) {
 		while (!ps2::events.empty()) {
