@@ -9,7 +9,7 @@ BUILDDIR="build/"
 KERNELNAME="myos"
 
 CC="$HOME/opt/cross/bin/i686-elf-g++"
-CFLAGS="-ffreestanding -O2 -g"
+CFLAGS="-ffreestanding -Og -g"
 CFLAGS="$CFLAGS -Wall -Wextra"
 CFLAGS="$CFLAGS -fno-exceptions -fno-rtti"
 CFLAGS="$CFLAGS -I./include -isystem ./include/libk"
@@ -17,7 +17,7 @@ CFLAGS="$CFLAGS -I./include -isystem ./include/libk"
 AS="$HOME/opt/cross/bin/i686-elf-as"
 
 LD="$HOME/opt/cross/bin/i686-elf-gcc"
-LDFLAGS="-O2"
+LDFLAGS="-Og"
 LDFLAGS="$LDFLAGS -nostdlib"
 LD_LFLAGS="-lgcc"
 
