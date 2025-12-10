@@ -1,6 +1,7 @@
 #include "apps/forth.hpp"
 
 #include <assert.h>
+#include <cstdint>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,20 +19,22 @@ namespace forth {
 
 namespace {
 
+using namespace mieliepit;
+
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t LINE_BUF_LEN = 128; // in order to support more complex pre-defined words
 static_assert(LINE_BUF_LEN >= MAX_LINE_LEN, "a line should be able to contain at least MAX_LINE_LEN characters");
 constexpr size_t EST_DESC_LEN = 64;
-constexpr size_t DESC_BUF_LEN = mieliepit::WORDS_SIZE * EST_DESC_LEN;
+constexpr size_t DESC_BUF_LEN = WORDS_SIZE * EST_DESC_LEN;
 constexpr size_t EST_NAME_LEN = 4;
-constexpr size_t NAME_BUF_LEN = mieliepit::WORDS_SIZE * EST_NAME_LEN;
-constexpr size_t CODE_BUF_SIZE = mieliepit::WORDS_SIZE*64;
+constexpr size_t NAME_BUF_LEN = WORDS_SIZE * EST_NAME_LEN;
+constexpr size_t CODE_BUF_SIZE = WORDS_SIZE*64;
 struct State {
 	bool should_quit = false;
 	bool capslock = false;
 	size_t line_len = 0;
 	char line[LINE_BUF_LEN];
-	mieliepit::ProgramState program_state {
+	ProgramState program_state {
 		.stack {},
 		.code {},
 		.error = nullptr,
@@ -40,8 +43,8 @@ struct State {
 		.words {},
 		.primitives = nullptr,
 		.primitives_len = 0,
-		.syntax = mieliepit::syntax,
-		.syntax_len = mieliepit::syntax_len,
+		.syntax = syntax,
+		.syntax_len = syntax_len,
 	};
 	size_t word_descs_len = 0;
 	char word_descs[DESC_BUF_LEN];
@@ -61,27 +64,15 @@ bool forth_running = false;
 using namespace sdk::util;
 
 /*
-#define error(msg) do { \
-		state.interp.err = msg; \
-		return; \
-	} while (0)
-#define error_fun(fun, msg) do { \
-		state.interp.err = "Error in `" fun "`: " msg; \
-		return; \
-	} while (0)
-#define check_stack_len_lt(fun, expr) if (state.stack_len >= (expr)) error_fun(fun, "stack length should be < " #expr)
-#define check_stack_len_ge(fun, expr) if (state.stack_len < (expr)) error_fun(fun, "stack length should be >= " #expr)
-#define check_stack_cap(fun, expr) if (state.stack_len + (expr) >= STACK_SIZE) error_fun(fun, "stack capacity should be at least " #expr)
-#define check_code_len(fun, len) if (state.code_len + (len) > CODE_BUF_SIZE) error_fun(fun, "not enough space to generate code for user word")
 RawFunction print_raw = { "<internal:print_raw>", []() {
 	check_stack_len_ge("<internal:print_raw>", 1);
-	const char *str = reinterpret_cast<const char*>(stack_pop());
+	const char *str = reinterpret_cast<const char*>(pop(state.stack));
 	term::writestring(str);
 } };
 void print_definition(uint32_t word_idx);
 RawFunction raw_print_definition = { "<internal:print_definition>", []() {
 	check_stack_len_ge("<internal:print_definition>", 1);
-	print_definition(stack_pop());
+	print_definition(pop(state.stack));
 } };
 RawFunction recurse = { "rec", []() {
 	state.interp.code.idx = 0;
@@ -126,192 +117,204 @@ void print_definition(uint32_t word_idx) {
 }
 */
 
-using pstate_t = mieliepit::ProgramState;
-mieliepit::Primitive primitives[] = {
+#define error(msg) do { \
+		state.error = msg; \
+		state.error_handled = false; \
+		return; \
+	} while (0)
+#define error_fun(fun, msg) error("Error in `" fun "`: " msg)
+#define check_stack_len_lt(fun, expr) if (length(state.stack) >= (expr)) error_fun(fun, "stack length should be < " #expr)
+#define check_stack_len_ge(fun, expr) if (length(state.stack) < (expr)) error_fun(fun, "stack length should be >= " #expr)
+#define check_stack_cap(fun, expr) if (length(state.stack) + (expr) >= STACK_SIZE) error_fun(fun, "stack capacity should be at least " #expr)
+#define check_code_len(fun, len) if (length(state.code) + (len) > CODE_BUFFER_SIZE) error_fun(fun, "not enough space to generate code for user word")
+using pstate_t = ProgramState;
+Primitive primitives[] = {
 	/* STACK OPERATIONS */
 	{ ".", "-- ; shows the top 16 elements of the stack", [](pstate_t &state) {
-		if (mieliepit::length(state.stack) == 0) { puts("empty."); return; }
+		if (length(state.stack) == 0) { puts("empty."); return; }
 
-		const size_t amt = mieliepit::length(state.stack) < 16
-			? mieliepit::length(state.stack)
+		const size_t amt = length(state.stack) < 16
+			? length(state.stack)
 			: 16;
-		if (mieliepit::length(state.stack) > 16) {
+		if (length(state.stack) > 16) {
 			term::writestring("... ");
 		}
 		size_t i = amt;
 		while (i --> 0) {
-			printf("%d ", mieliepit::stack_peek(state.stack, i));
+			printf("%d ", stack_peek(state.stack, i));
 		}
 		putchar('\n');
 	} },
-	/*
-	{ "stack_len", "-- a ; pushes length of stack", []() {
-		check_stack_len_lt("stack_len", STACK_SIZE);
-		stack_push(state.stack_len);
+	{ "stack_len", "-- a ; pushes length of stack", [](pstate_t &state) {
+		check_stack_cap("stack_len", 1);
+		push(state.stack, {
+			.pos = length(state.stack)
+		});
 	} },
-	{ "dup", "a -- a a", []() {
+	{ "dup", "a -- a a", [](pstate_t &state) {
 		check_stack_len_ge("dup", 1);
-		check_stack_len_lt("dup", STACK_SIZE);
-		stack_push(stack_peek());
+		check_stack_cap("dup", 1);
+		push(state.stack, stack_peek(state.stack));
 	} },
-	{ "swap", "a b -- b a", []() {
+	{ "swap", "a b -- b a", [](pstate_t &state) {
 		check_stack_len_ge("swap", 2);
-		const uint32_t top = stack_pop();
-		const uint32_t under_top = stack_pop();
-		stack_push(top);
-		stack_push(under_top);
+		const number_t top = pop(state.stack);
+		const number_t under_top = pop(state.stack);
+		push(state.stack, top);
+		push(state.stack, under_top);
 	} },
-	{ "rot", "a b c -- b c a", []() {
+	{ "rot", "a b c -- b c a", [](pstate_t &state) {
 		check_stack_len_ge("rot", 3);
-		const uint32_t c = stack_pop();
-		const uint32_t b = stack_pop();
-		const uint32_t a = stack_pop();
-		stack_push(b);
-		stack_push(c);
-		stack_push(a);
+		const number_t c = pop(state.stack);
+		const number_t b = pop(state.stack);
+		const number_t a = pop(state.stack);
+		push(state.stack, b);
+		push(state.stack, c);
+		push(state.stack, a);
 	} },
-	{ "unrot", "a b c -- c a b", []() {
+	{ "unrot", "a b c -- c a b", [](pstate_t &state) {
 		check_stack_len_ge("rot", 3);
-		const uint32_t c = stack_pop();
-		const uint32_t b = stack_pop();
-		const uint32_t a = stack_pop();
-		stack_push(c);
-		stack_push(a);
-		stack_push(b);
+		const number_t c = pop(state.stack);
+		const number_t b = pop(state.stack);
+		const number_t a = pop(state.stack);
+		push(state.stack, c);
+		push(state.stack, a);
+		push(state.stack, b);
 	} },
-	{ "rev", "a b c -- c b a", []() {
-		check_stack_len_ge("rot", 3);
-		const uint32_t c = stack_pop();
-		const uint32_t b = stack_pop();
-		const uint32_t a = stack_pop();
-		stack_push(c);
-		stack_push(b);
-		stack_push(a);
+	{ "rev", "a b c -- c b a", [](pstate_t &state) {
+		check_stack_len_ge("rev", 3);
+		const number_t c = pop(state.stack);
+		const number_t b = pop(state.stack);
+		const number_t a = pop(state.stack);
+		push(state.stack, c);
+		push(state.stack, b);
+		push(state.stack, a);
 	} },
-	{ "drop", "a --", []() {
+	{ "drop", "a --", [](pstate_t &state) {
 		check_stack_len_ge("drop", 1);
-		stack_pop();
+		pop(state.stack);
 	} },
-	{ "rev_n", "... n -- ... ; reverse the top n elements", []() {
-		check_stack_len_ge("rot_n", 1);
-		const uint32_t n = stack_pop();
+	{ "rev_n", "... n -- ... ; reverse the top n elements", [](pstate_t &state) {
+		check_stack_len_ge("rev_n", 1);
+		const uint32_t n = pop(state.stack).pos;
 		check_stack_len_ge("rot_n", n);
 		for (size_t i = 0; i < n/2; ++i) {
-			const size_t fst_ix = i+1;
-			const size_t scd_ix = n-i;
-			const uint32_t tmp = stack_peek(fst_ix);
-			stack_get(fst_ix) = stack_peek(scd_ix);
-			stack_get(scd_ix) = tmp;
+			const size_t fst_ix = i;
+			const size_t scd_ix = n-i-1;
+			const number_t tmp = stack_peek(state.stack, fst_ix);
+			stack_peek(state.stack, fst_ix) = stack_peek(state.stack, scd_ix);
+			stack_peek(state.stack, scd_ix) = tmp;
 		}
 	} },
-	{ "nth", "... n -- ... x ; dup the nth element down to the top", []() {
+	{ "nth", "... n -- ... x ; dup the nth element down to the top", [](pstate_t &state) {
 		check_stack_len_ge("nth", 1);
-		const uint32_t n = stack_pop();
+		const uint32_t n = pop(state.stack).pos;
 		check_stack_len_ge("nth", n);
 		if (n == 0) {
 			error_fun("nth", "n must be nonzero");
 		}
-		stack_push(stack_peek(n));
+		push(state.stack, stack_peek(state.stack, n-1));
 	} },
-	*/
 
 	/* ARYTHMETIC OPERATIONS */
-	/*
 	{ "inc", "a -- a+1", [](pstate_t &state) {
 		check_stack_len_ge("inc", 1);
-		++stack_get();
+		++stack_peek(state.stack).pos;
 	} },
 	{ "dec", "a -- a-1", [](pstate_t &state) {
 		check_stack_len_ge("dec", 1);
-		--stack_get();
+		--stack_peek(state.stack).pos;
 	} },
-	*/
 	{ "+", "a b -- a+b", [](pstate_t &state) {
-		//check_stack_len_ge("+", 2);
-		//stack_push(stack_pop() + stack_pop());
+		check_stack_len_ge("+", 2);
 		push(state.stack, {
 			.pos = pop(state.stack).pos + pop(state.stack).pos,
 		});
 	} },
-	/*
 	{ "*", "a b -- a*b", [](pstate_t &state) {
 		check_stack_len_ge("*", 2);
-		stack_push(stack_pop() * stack_pop());
+		push(state.stack, {
+			.sign = pop(state.stack).sign * pop(state.stack).sign,
+		});
 	} },
 	{ "/", "a b -- a/b", [](pstate_t &state) {
 		check_stack_len_ge("/", 2);
-		const uint32_t b = stack_pop();
-		const uint32_t a = stack_pop();
-		stack_push(a / b);
+		const number_t b = pop(state.stack);
+		const number_t a = pop(state.stack);
+		push(state.stack, {
+			.sign = a.sign / b.sign,
+		});
 	} },
-	*/
 
 	/* BITWISE OPERATIONS */
-	/*
-	{ "shl", "a b -- a<<b", []() {
+	{ "shl", "a b -- a<<b", [](pstate_t &state) {
 		check_stack_len_ge("shl", 2);
-		const uint32_t top = stack_pop();
-		const uint32_t under_top = stack_pop();
+		const uint32_t top = pop(state.stack).pos;
+		const uint32_t under_top = pop(state.stack).pos;
 		if (top >= 32) {
-			stack_push(0);
+			push(state.stack, {0});
 		} else {
-			stack_push(under_top << top);
+			push(state.stack, { .pos = under_top << top });
 		}
 	} },
-	{ "shr", "a b -- a>>b", []() {
+	{ "shr", "a b -- a>>b", [](pstate_t &state) {
 		check_stack_len_ge("shr", 2);
-		const uint32_t top = stack_pop();
-		const uint32_t under_top = stack_pop();
+		const uint32_t top = pop(state.stack).pos;
+		const uint32_t under_top = pop(state.stack).pos;
 		if (top >= 32) {
-			stack_push(0);
+			push(state.stack, {0});
 		} else {
-			stack_push(under_top >> top);
+			push(state.stack, { .pos = under_top >> top });
 		}
 	} },
-	{ "or", "a b -- a|b", []() {
+	{ "or", "a b -- a|b", [](pstate_t &state) {
 		check_stack_len_ge("or", 2);
-		stack_push(stack_pop() | stack_pop());
+		push(state.stack, {
+			.pos = pop(state.stack).pos | pop(state.stack).pos
+		});
 	} },
-	{ "and", "a b -- a&b", []() {
+	{ "and", "a b -- a&b", [](pstate_t &state) {
 		check_stack_len_ge("and", 2);
-		stack_push(stack_pop() & stack_pop());
+		push(state.stack, {
+			.pos = pop(state.stack).pos & pop(state.stack).pos
+		});
 	} },
-	{ "xor", "a b -- a^b", []() {
+	{ "xor", "a b -- a^b", [](pstate_t &state) {
 		check_stack_len_ge("xor", 2);
-		stack_push(stack_pop() ^ stack_pop());
+		push(state.stack, {
+			.pos = pop(state.stack).pos ^ pop(state.stack).pos
+		});
 	} },
-	{ "not", "a -- ~a", []() {
+	{ "not", "a -- ~a", [](pstate_t &state) {
 		check_stack_len_ge("not", 1);
-		stack_push(~stack_pop());
+		push(state.stack, { .pos = ~pop(state.stack).pos });
 	} },
-	*/
 
 	/* COMPARISON */
-	/*
-	{ "=", "a b -- a=b", []() {
+	{ "=", "a b -- a=b", [](pstate_t &state) {
 		check_stack_len_ge("=?", 2);
-		stack_push(stack_pop() == stack_pop() ? ~0 : 0);
+		push(state.stack, {
+			.sign = pop(state.stack).pos == pop(state.stack).pos
+			? -1 : 0
+		});
 	} },
-	{ "<", "a b -- a<b", []() {
+	{ "<", "a b -- a<b", [](pstate_t &state) {
 		check_stack_len_ge("=?", 2);
-		const uint32_t b_raw = stack_pop();
-		const uint32_t a_raw = stack_pop();
-		const int32_t b = *(int32_t*)&b_raw;
-		const int32_t a = *(int32_t*)&a_raw;
-		stack_push(a < b ? ~0 : 0);
+		const int32_t b = pop(state.stack).sign;
+		const int32_t a = pop(state.stack).sign;
+		push(state.stack, { .sign = a < b ? -1 : 0 });
 	} },
-	*/
 
 	/* LITERALS */
-	/*
-	{ "true", "-- -1", []() {
+	{ "true", "-- -1", [](pstate_t &state) {
 		check_stack_len_lt("true", STACK_SIZE);
-		stack_push(~0);
+		push(state.stack, { .sign = -1 });
 	} },
-	{ "false", "-- 0", []() {
+	{ "false", "-- 0", [](pstate_t &state) {
 		check_stack_len_lt("false", STACK_SIZE);
-		stack_push(0);
+		push(state.stack, { .sign = 0 });
 	} },
+	/*
 	{ "hex", "-- a ; interprets next word as hex number and pushes it", []() {
 		if (!state.compiling && state.skip) {
 			get_word();
@@ -350,7 +353,7 @@ mieliepit::Primitive primitives[] = {
 				.lit = num,
 			};
 		} else {
-			stack_push(num);
+			push(state.stack, num);
 		}
 	}, true },
 	{ "'", "-- a ; interprets next word as short (<= 4 long) string and pushes it", []() {
@@ -383,27 +386,25 @@ mieliepit::Primitive primitives[] = {
 				.lit = num,
 			};
 		} else {
-			stack_push(num);
+			push(state.stack, num);
 		}
 	}, true },
 	*/
 
 	/* OUTPUT OPERATIONS */
-	/*
-	{ "print", "a -- ; prints top element of stack as a signed number", []() {
+	{ "print", "a -- ; prints top element of stack as a signed number", [](pstate_t &state) {
 		check_stack_len_ge("print", 1);
-		printf("%d ", reinterpret_cast<uint32_t>(stack_pop()));
+		printf("%d ", pop(state.stack).sign);
 	} },
-	{ "pstr", "a -- ; prints top element as string of at most four characters", []() {
+	{ "pstr", "a -- ; prints top element as string of at most four characters", [](pstate_t &state) {
 		check_stack_len_ge("pstr", 1);
-		const uint32_t str_raw = stack_pop();
+		const uint32_t str_raw = pop(state.stack).pos;
 		const char *str = (char*)&str_raw;
 		for (size_t i = 0; i < 4; ++i) {
 			if (str[i] == 0) break;
 			term::putchar(str[i]);
 		}
 	} },
-	*/
 
 	/* STRINGS */
 	/*
@@ -464,7 +465,7 @@ mieliepit::Primitive primitives[] = {
 					.lit = num,
 				};
 			} else {
-				stack_push(num);
+				push(state.stack, num);
 			}
 		}
 		if (state.compiling) {
@@ -475,18 +476,18 @@ mieliepit::Primitive primitives[] = {
 				.lit = words,
 			};
 		} else {
-			stack_push(words);
+			push(state.stack, words);
 		}
 	}, true },
-	{ "print_string", "... n -- ; prints a string of length n", []() {
+	*/
+	{ "print_string", "... n -- ; prints a string of length n", [](pstate_t &state) {
 		check_stack_len_ge("print_string", 1);
-		const uint32_t n = stack_pop();
+		const uint32_t n = pop(state.stack).pos;
 
 		check_stack_len_ge("print_string", n);
-		term::writestring((const char*)&state.stack[state.stack_len - n]);
-		state.stack_len -= n;
+		term::writestring((const char*)&stack_peek(state.stack, n-1));
+		for (uint32_t i = 0; i < n; ++i) pop(state.stack);
 	} },
-	*/
 
 	/* SYSTEM OPERATION */
 	{ "exit", "-- ; exits the forth interpreter", [](pstate_t&) {
@@ -498,22 +499,22 @@ mieliepit::Primitive primitives[] = {
 	// TODO: sleep functions perhaps, clearing the keyboard buffer when done? Essentially ignoring all user input while sleeping
 
 	/* DOCUMENTATION / HELP / INSPECTION */
+	{ "primitives", "-- ; prints a list of all available primitive words", [](pstate_t &state) {
+		for (idx_t i = 0; i < state.primitives_len; ++i) {
+			if (i) putchar(' ');
+			term::writestring(state.primitives[i].name);
+		}
+		putchar('\n');
+	} },
+	{ "words", "-- ; prints a list of all user-defined words", [](pstate_t &state) {
+		size_t i = length(state.words);
+		while (i --> 0) {
+			term::writestring(state.words[i].name);
+			if (i) putchar(' ');
+		}
+		putchar('\n');
+	} },
 	/*
-	{ "primitives", "-- ; prints a list of all available primitive words", []() {
-		for (size_t pi = 0; primitives[pi].func != NULL; ++pi) {
-			if (pi) putchar(' ');
-			term::writestring(primitives[pi].name);
-		}
-		putchar('\n');
-	} },
-	{ "words", "-- ; prints a list of all user-defined words", []() {
-		size_t wi = state.words_len;
-		while (wi --> 0) {
-			term::writestring(state.words[wi].name);
-			if (wi) putchar(' ');
-		}
-		putchar('\n');
-	} },
 	{ "help", "-- ; prints help text for the next word", []() {
 		if (!state.compiling && state.skip) {
 			get_word();
@@ -666,7 +667,8 @@ mieliepit::Primitive primitives[] = {
 
 		error_fun("def", "Couldn't find specified word");
 	}, true },
-	{ "guide", "-- ; prints usage guide for the forth interpreter", []() {
+	*/
+	{ "guide", "-- ; prints usage guide for the forth interpreter", [](pstate_t&) {
 		const char *guide_text =
 			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
 			"Data consists of 32-bit integers stored on a stack. You can enter a single period ( . ) into the prompt at any time to view the stack.\n"
@@ -716,7 +718,6 @@ mieliepit::Primitive primitives[] = {
 			}
 		}
 	} },
-	*/
 
 	/* INTERNALS / SYNTAX */
 	/*
@@ -879,7 +880,7 @@ mieliepit::Primitive primitives[] = {
 
 			check_stack_len_ge("?", 1);
 
-			if (stack_pop() == 0) ++state.skip;
+			if (pop(state.stack) == 0) ++state.skip;
 
 			return;
 		}
@@ -891,7 +892,7 @@ mieliepit::Primitive primitives[] = {
 
 			check_stack_len_ge("?", 1);
 
-			if (stack_pop() == 0) ++state.skip;
+			if (pop(state.stack) == 0) ++state.skip;
 
 			run_compiled_section(next_len);
 		} };
@@ -914,7 +915,7 @@ mieliepit::Primitive primitives[] = {
 			}
 
 			check_stack_len_ge("rep_and", 1);
-			const size_t n = stack_pop();
+			const size_t n = pop(state.stack);
 
 			size_t &word = state.interp.word.pos;
 			size_t &len = state.interp.word.len;
@@ -935,7 +936,7 @@ mieliepit::Primitive primitives[] = {
 
 				if (!state.interp.err) {
 					check_stack_cap("rep_and", 1);
-					stack_push(n);
+					push(state.stack, n);
 				}
 			} else {
 				get_word();
@@ -953,7 +954,7 @@ mieliepit::Primitive primitives[] = {
 
 					if (!state.interp.err) {
 						check_stack_cap("rep_and", 1);
-						stack_push(n);
+						push(state.stack, n);
 					}
 				} else {
 					error_fun("rep_and", "undefined word");
@@ -966,7 +967,7 @@ mieliepit::Primitive primitives[] = {
 				const uint32_t next_len = read_compiled_number(state.interp.code).get();
 
 				check_stack_len_ge("rep_and", 1);
-				const size_t n = stack_pop();
+				const size_t n = pop(state.stack);
 
 				if (n == 0) {
 					++state.skip;
@@ -984,7 +985,7 @@ mieliepit::Primitive primitives[] = {
 
 				if (!state.interp.err) {
 					check_stack_cap("rep_and", 1);
-					stack_push(n);
+					push(state.stack, n);
 				}
 			} };
 
@@ -1015,7 +1016,7 @@ mieliepit::Primitive primitives[] = {
 			).get() == 1);
 		} else {
 			check_stack_len_ge("rep", 1);
-			stack_pop();
+			pop(state.stack);
 		}
 	}, true },
 	*/
@@ -1049,13 +1050,15 @@ void input_key(ps2::Key, char ch, bool capitalise) {
 }
 
 void interpret_line() {
-	mieliepit::Interpreter interpreter {
+	Interpreter interpreter {
 		.line = state.line,
 		.len = state.line_len,
-		.action = mieliepit::Interpreter::Run,
+		.action = Interpreter::Run,
 		.curr_word = {},
 		.state = state.program_state,
 	};
+	state.program_state.error = nullptr;
+	state.program_state.error_handled = false;
 
 	while (!state.program_state.error && interpreter.len > 0) {
 		interpreter.advance();
