@@ -1,0 +1,3 @@
+[submodule "external/mieliepit"]
+	path = external/mieliepit
+	url = git@github.com:Ruan-pysoft/mieliepit.git

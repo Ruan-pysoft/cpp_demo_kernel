@@ -6,5 +6,7 @@
 -fno-rtti
 -nostdlib
 -I./include
+-I./external
 -nostdinc++
 -isystem./include/libk
+-DKERNEL

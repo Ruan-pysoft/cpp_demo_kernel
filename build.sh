@@ -6,13 +6,15 @@ set -x -e
 
 SRCDIR="src/"
 BUILDDIR="build/"
+EXTERNALDIR="external/"
 KERNELNAME="myos"
 
 CC="$HOME/opt/cross/bin/i686-elf-g++"
 CFLAGS="-ffreestanding -Og -g"
 CFLAGS="$CFLAGS -Wall -Wextra"
 CFLAGS="$CFLAGS -fno-exceptions -fno-rtti"
-CFLAGS="$CFLAGS -I./include -isystem ./include/libk"
+CFLAGS="$CFLAGS -I./include -I./external -isystem ./include/libk"
+CFLAGS="$CFLAGS -DKERNEL"
 
 AS="$HOME/opt/cross/bin/i686-elf-as"
 
@@ -80,6 +82,11 @@ OBJS="$OBJS $BUILDDIR/apps/component-menu.o"
 $CC $CFLAGS -c $SRCDIR/apps/components/pager.cpp -o $BUILDDIR/apps/component-pager.o
 OBJS="$OBJS $BUILDDIR/apps/component-pager.o"
 
+mkdir -p $BUILDDIR/external
+
+$CC $CFLAGS -c $EXTERNALDIR/mieliepit/mieliepit.cpp -o $BUILDDIR/external/mieliepit.o
+OBJS="$OBJS $BUILDDIR/external/mieliepit.o"
+
 mkdir -p $BUILDDIR/sdk
 
 $CC $CFLAGS -c $SRCDIR/libk/sdk/eventloop.cpp -o $BUILDDIR/sdk/eventloop.o
@@ -104,6 +111,10 @@ $CC $CFLAGS -c $SRCDIR/libk/string/memmove.cpp -o $BUILDDIR/libk-string-memmove.
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-memmove.o"
 $CC $CFLAGS -c $SRCDIR/libk/string/memset.cpp -o $BUILDDIR/libk-string-memset.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-memset.o"
+$CC $CFLAGS -c $SRCDIR/libk/string/strcmp.cpp -o $BUILDDIR/libk-string-strcmp.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-strcmp.o"
+$CC $CFLAGS -c $SRCDIR/libk/string/strncmp.cpp -o $BUILDDIR/libk-string-strncmp.o
+LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-strncmp.o"
 $CC $CFLAGS -c $SRCDIR/libk/string/strlen.cpp -o $BUILDDIR/libk-string-strlen.o
 LIBK_OBJS="$LIBK_OBJS $BUILDDIR/libk-string-strlen.o"
 
