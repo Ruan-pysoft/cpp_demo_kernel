@@ -311,82 +311,6 @@ Primitive primitives[] = {
 		check_stack_len_lt("false", STACK_SIZE);
 		push(state.stack, { .sign = 0 });
 	} },
-	/*
-	{ "hex", "-- a ; interprets next word as hex number and pushes it", []() {
-		if (!state.compiling && state.skip) {
-			get_word();
-			return;
-		}
-		if (!state.compiling) check_stack_len_lt("hex", STACK_SIZE);
-		get_word();
-		if (state.interp.word.len == 0) {
-			error_fun("hex", "expected a hexadecimal number, didn't get anything");
-		}
-		if (state.interp.word.len > 8) {
-			error_fun("hex", "largest supported number is FFFFFFFF");
-		}
-		uint32_t num = 0;
-		for (size_t i = 0; i < state.interp.word.len; ++i) {
-			const char ch = state.line[state.interp.word.pos+i];
-			if ((ch < '0' || '9' < ch) && (ch < 'a' || 'z' < ch) && (ch < 'A' || 'Z' < ch)) {
-				error_fun("hex", "expected hex number to consist only of hex digits (0-9, a-f, A-F)");
-			}
-			num <<= 4;
-			if ('0' <= ch && ch <= '9') {
-				num |= ch-'0';
-			} else if ('a' <= ch && ch <= 'z') {
-				num |= ch-'a';
-			} else {
-				num |= ch-'A';
-			}
-		}
-		if (state.compiling) {
-			check_code_len("hex", 2);
-
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = num,
-			};
-		} else {
-			push(state.stack, num);
-		}
-	}, true },
-	{ "'", "-- a ; interprets next word as short (<= 4 long) string and pushes it", []() {
-		if (!state.compiling && state.skip) {
-			get_word();
-			return;
-		}
-		if (!state.compiling) check_stack_len_lt("'", STACK_SIZE);
-		get_word();
-		if (state.interp.word.len == 0) {
-			error_fun("'", "expected a short string, didn't get anything");
-		}
-		if (state.interp.word.len > 8) {
-			error_fun("'", "short strings may be no longer than four characters");
-		}
-		uint32_t num = 0;
-		size_t i = state.interp.word.len;
-		while (i --> 0) {
-			const char ch = state.line[state.interp.word.pos+i];
-			num <<= 8;
-			num |= *(const uint8_t*)&ch;
-		}
-		if (state.compiling) {
-			check_code_len("'", 2);
-
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = num,
-			};
-		} else {
-			push(state.stack, num);
-		}
-	}, true },
-	*/
 
 	/* OUTPUT OPERATIONS */
 	{ "print", "a -- ; prints top element of stack as a signed number", [](pstate_t &state) {
@@ -404,79 +328,6 @@ Primitive primitives[] = {
 	} },
 
 	/* STRINGS */
-	/*
-	{ "\"", "-- ... n ; pushes a string to the top of the stack (data then length)", []() {
-		WordPos &word = state.interp.word;
-
-		if (!state.compiling && state.skip) {
-			get_word();
-
-			while (word.len != 0 && !(word.len == 1 && state.line[word.pos] == '"')) {
-				get_word();
-			}
-
-			if (word.len == 0) {
-				error_fun("\"", "expected closing \" for string");
-			}
-
-			return;
-		}
-
-		size_t start = 0;
-		size_t end = 0;
-		get_word();
-		start = word.pos;
-
-		while (word.len != 0 && !(word.len == 1 && state.line[word.pos] == '"')) {
-			end = word.pos + word.len;
-			get_word();
-		}
-
-		if (word.len == 0) {
-			error_fun("\"", "expected closing \" for string");
-		}
-
-		const size_t len = end - start;
-		const size_t words = len/4 + !!(len&3);
-
-		if (state.compiling) {
-			check_code_len("\"", (words+1)*2);
-		} else {
-			check_stack_cap("\"", words+1);
-		}
-
-		for (size_t i = 0; i < words; ++i) {
-			uint32_t num = 0;
-			size_t j = i*4 + 4;
-			if (j > len) j = len;
-			while (j --> i*4) {
-				const char ch = state.line[start + j];
-				num <<= 8;
-				num |= *(const uint8_t*)&ch;
-			}
-			if (state.compiling) {
-				state.code[state.code_len++] = CodeElem {
-					.prefix = CodeElemPrefix::Literal,
-				};
-				state.code[state.code_len++] = CodeElem {
-					.lit = num,
-				};
-			} else {
-				push(state.stack, num);
-			}
-		}
-		if (state.compiling) {
-			state.code[state.code_len++] = CodeElem {
-				.prefix = CodeElemPrefix::Literal,
-			};
-			state.code[state.code_len++] = CodeElem {
-				.lit = words,
-			};
-		} else {
-			push(state.stack, words);
-		}
-	}, true },
-	*/
 	{ "print_string", "... n -- ; prints a string of length n", [](pstate_t &state) {
 		check_stack_len_ge("print_string", 1);
 		const uint32_t n = pop(state.stack).pos;
@@ -496,6 +347,13 @@ Primitive primitives[] = {
 	// TODO: sleep functions perhaps, clearing the keyboard buffer when done? Essentially ignoring all user input while sleeping
 
 	/* DOCUMENTATION / HELP / INSPECTION */
+	{ "syntax", "-- ; prints a list of all available syntax items", [](pstate_t &state) {
+		for (idx_t i = 0; i < syntax_len; ++i) {
+			if (i) putchar(' ');
+			term::writestring(state.syntax[i].name);
+		}
+		putchar('\n');
+	} },
 	{ "primitives", "-- ; prints a list of all available primitive words", [](pstate_t &state) {
 		for (idx_t i = 0; i < state.primitives_len; ++i) {
 			if (i) putchar(' ');
@@ -512,93 +370,6 @@ Primitive primitives[] = {
 		putchar('\n');
 	} },
 	/*
-	{ "help", "-- ; prints help text for the next word", []() {
-		if (!state.compiling && state.skip) {
-			get_word();
-			return;
-		}
-
-		get_word();
-		if (state.interp.word.len == 0) {
-			error_fun("help", "expected following word");
-		}
-
-		const auto word_idx = parse_word(
-			&state.line[state.interp.word.pos],
-			state.interp.word.len
-		);
-		if (word_idx.has && state.compiling) {
-			check_code_len("help", 15);
-
-			const char *s = "`: ";
-
-			assert(compile_number('`').get() == 2);
-			assert(compile_primitive(parse_primitive(
-				"pstr", 4
-			).get()).get() == 1);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(state.words[word_idx.get()].name)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(s)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(state.words[word_idx.get()].desc)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			return;
-		} else if (word_idx.has) {
-			const auto &word = state.words[word_idx.get()];
-			printf("`%s`: %s", word.name, word.desc);
-
-			return;
-		}
-
-		const auto prim_idx = parse_primitive(
-			&state.line[state.interp.word.pos],
-			state.interp.word.len
-		);
-		if (prim_idx.has && state.compiling) {
-			check_code_len("help", 15);
-
-			const char *s = "`: ";
-
-			assert(compile_number('`').get() == 2);
-			assert(compile_primitive(parse_primitive(
-				"pstr", 4
-			).get()).get() == 1);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(primitives[prim_idx.get()].name)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(s)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(primitives[prim_idx.get()].desc)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			return;
-		} else if (prim_idx.has) {
-			const auto &prim = primitives[prim_idx.get()];
-			printf("`%s`: %s", prim.name, prim.desc);
-
-			return;
-		}
-
-		error_fun("help", "Couldn't find specified word");
-	}, true },
 	{ "def", "-- ; prints the definition of a given word", []() {
 		if (!state.compiling && state.skip) {
 			get_word();
