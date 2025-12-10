@@ -1,6 +1,6 @@
 #pragma once
 
-namespace forth {
+namespace mieliepit {
 
 void main();
 

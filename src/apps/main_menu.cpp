@@ -12,7 +12,7 @@
 #include "apps/components/pager.hpp"
 
 #include "apps/snake.hpp"
-#include "apps/forth.hpp"
+#include "apps/mieliepit.hpp"
 #include "apps/character_map.hpp"
 #include "apps/queued_demo.hpp"
 #include "apps/callback_demo.hpp"
@@ -91,7 +91,7 @@ void pager_test() {
 
 constexpr MenuEntry menu_entries[] = {
 	{ "Snake game", snake::main },
-	{ "FORTH interpreter", forth::main },
+	{ "Mieliepit interpreter (stack-based programming language)", mieliepit::main },
 	{ "Display character map", character_map::main },
 };
 constexpr size_t menu_entries_len = sizeof(menu_entries)/sizeof(*menu_entries);

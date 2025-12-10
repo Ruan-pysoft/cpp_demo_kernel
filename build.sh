@@ -74,8 +74,8 @@ $CC $CFLAGS -c $SRCDIR/apps/snake.cpp -o $BUILDDIR/apps/snake.o
 OBJS="$OBJS $BUILDDIR/apps/snake.o"
 $CC $CFLAGS -c $SRCDIR/apps/character_map.cpp -o $BUILDDIR/apps/character_map.o
 OBJS="$OBJS $BUILDDIR/apps/character_map.o"
-$CC $CFLAGS -c $SRCDIR/apps/forth.cpp -o $BUILDDIR/apps/forth.o
-OBJS="$OBJS $BUILDDIR/apps/forth.o"
+$CC $CFLAGS -c $SRCDIR/apps/mieliepit.cpp -o $BUILDDIR/apps/mieliepit.o
+OBJS="$OBJS $BUILDDIR/apps/mieliepit.o"
 
 $CC $CFLAGS -c $SRCDIR/apps/components/menu.cpp -o $BUILDDIR/apps/component-menu.o
 OBJS="$OBJS $BUILDDIR/apps/component-menu.o"

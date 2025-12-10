@@ -1,7 +1,6 @@
-#include "apps/forth.hpp"
+#include "apps/mieliepit.hpp"
 
 #include <assert.h>
-#include <cstdint>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,11 +14,9 @@
 #include "ps2.hpp"
 #include "vga.hpp"
 
-namespace forth {
+namespace mieliepit {
 
 namespace {
-
-using namespace mieliepit;
 
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t LINE_BUF_LEN = 128; // in order to support more complex pre-defined words
@@ -59,7 +56,7 @@ struct State {
 	State &operator=(State&&) = default;
 };
 static State state{};
-bool forth_running = false;
+bool mieliepit_running = false;
 
 using namespace sdk::util;
 
@@ -490,10 +487,10 @@ Primitive primitives[] = {
 	} },
 
 	/* SYSTEM OPERATION */
-	{ "exit", "-- ; exits the forth interpreter", [](pstate_t&) {
+	{ "exit", "-- ; exits the mieliepit interpreter", [](pstate_t&) {
 		state.should_quit = true;
 	} },
-	{ "quit", "-- ; exits the forth interpreter", [](pstate_t&) {
+	{ "quit", "-- ; exits the mieliepit interpreter", [](pstate_t&) {
 		state.should_quit = true;
 	} },
 	// TODO: sleep functions perhaps, clearing the keyboard buffer when done? Essentially ignoring all user input while sleeping
@@ -668,9 +665,10 @@ Primitive primitives[] = {
 		error_fun("def", "Couldn't find specified word");
 	}, true },
 	*/
-	{ "guide", "-- ; prints usage guide for the forth interpreter", [](pstate_t&) {
+	{ "guide", "-- ; prints usage guide for the mieliepit interpreter", [](pstate_t&) {
 		const char *guide_text =
-			"This is a FORTH interpreter. It is operated by entering a sequence of space-seperated words into the prompt.\n"
+			"Mieliepit is a stack-based programming language.\n"
+			"It is operated by entering a sequence of space-seperated words into the prompt.\n"
 			"Data consists of 32-bit integers stored on a stack. You can enter a single period ( . ) into the prompt at any time to view the stack.\n"
 			"Comments are formed with parentheses: ( this is a comment ) . Remember to leave spaces around each parenthesis!\n"
 			"There are two kinds of words: Primitives, which perform some operation, and numbers, which pushes a number to the stack.\n"
@@ -1146,8 +1144,8 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 	} while (0)
 
 void main() {
-	assert(!forth_running);
-	forth_running = true;
+	assert(!mieliepit_running);
+	mieliepit_running = true;
 	state = State{};
 	state.program_state.primitives = primitives;
 	state.program_state.primitives_len = sizeof(primitives)/sizeof(*primitives);
@@ -1200,7 +1198,7 @@ void main() {
 		__asm__ volatile("hlt" ::: "memory");
 	}
 
-	forth_running = false;
+	mieliepit_running = false;
 }
 
 }
