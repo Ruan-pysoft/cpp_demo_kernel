@@ -369,73 +369,6 @@ Primitive primitives[] = {
 		}
 		putchar('\n');
 	} },
-	/*
-	{ "def", "-- ; prints the definition of a given word", []() {
-		if (!state.compiling && state.skip) {
-			get_word();
-			return;
-		}
-
-		get_word();
-		if (state.interp.word.len == 0) {
-			error_fun("def", "expected following word");
-		}
-
-		const auto word_idx = parse_word(
-			&state.line[state.interp.word.pos],
-			state.interp.word.len
-		);
-		if (word_idx.has && state.compiling) {
-			check_code_len("def", 4);
-
-			assert(compile_number(word_idx.get()).get() == 2);
-			assert(compile_raw_func(&raw_print_definition).get() == 2);
-
-			return;
-		} else if (word_idx.has) {
-			print_definition(word_idx.get());
-
-			return;
-		}
-
-		const auto prim_idx = parse_primitive(
-			&state.line[state.interp.word.pos],
-			state.interp.word.len
-		);
-		if (prim_idx.has && state.compiling) {
-			check_code_len("def", 12);
-
-			const char *s0 = "<built-in primitive `";
-			const char *s1 = "`>";
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(s0)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(primitives[prim_idx.get()].name)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			assert(compile_number(
-				reinterpret_cast<uint32_t>(s1)
-			).get() == 2);
-			assert(compile_raw_func(&print_raw).get() == 2);
-
-			return;
-		} else if (prim_idx.has) {
-			printf(
-				"<built-in primitive `%s`>",
-				primitives[prim_idx.get()].name
-			);
-
-			return;
-		}
-
-		error_fun("def", "Couldn't find specified word");
-	}, true },
-	*/
 	{ "guide", "-- ; prints usage guide for the mieliepit interpreter", [](pstate_t&) {
 		const char *guide_text =
 			"Mieliepit is a stack-based programming language.\n"
@@ -490,25 +423,6 @@ Primitive primitives[] = {
 
 	/* INTERNALS / SYNTAX */
 	/*
-	{ "(", "-- ; begins a comment", []() {
-		int nesting = 1;
-
-		while (nesting) {
-			get_word();
-			if (state.interp.word.len == 0) {
-				error_fun("(", "expected matching )");
-			}
-
-			if (state.interp.word.len == 1 && state.line[state.interp.word.pos] == '(') {
-				++nesting;
-			} else if (state.interp.word.len == 1 && state.line[state.interp.word.pos] == ')') {
-				--nesting;
-			}
-		}
-	}, true },
-	{ ")", "-- ; ends a comment", []() {
-		error_fun(")", "comment end found without matching comment begin!");
-	}, true },
 	{ ":", "-- ; begins a user-supplied word definition", []() {
 		if (state.compiling) {
 			error_fun(":", "new words may only be defined while interpreting a line");
@@ -613,68 +527,6 @@ Primitive primitives[] = {
 		};
 
 		state.compiling = false;
-	}, true },
-	{ "rec", "-- ; recurses (runs the current word from the start)", []() {
-		if (!state.compiling) {
-			error_fun("rec", "rec is only valid when defining a word (inside : ; )");
-		}
-		check_code_len("rec", 2);
-
-		state.code[state.code_len++] = {
-			.prefix = CodeElemPrefix::RawFunc,
-		};
-		state.code[state.code_len++] = {
-			.fun = &recurse
-		};
-	}, true },
-	{ "ret", "-- ; returns (exits the current word early)", []() {
-		if (!state.compiling) {
-			error_fun("ret", "ret is only valid when defining a word (inside : ; )");
-		}
-		check_code_len("ret", 2);
-
-		state.code[state.code_len++] = {
-			.prefix = CodeElemPrefix::RawFunc,
-		};
-		state.code[state.code_len++] = {
-			.fun = &rf_return
-		};
-	}, true },
-	{ "?", "a -- ; only executes the next word if the stack top is nonzero", []() {
-		if (!state.compiling) {
-			if (state.skip) {
-				++state.skip;
-				return;
-			}
-
-			check_stack_len_ge("?", 1);
-
-			if (pop(state.stack) == 0) ++state.skip;
-
-			return;
-		}
-
-		check_code_len("?", 4);
-
-		static RawFunction compiled = { "?", []() {
-			const uint32_t next_len = read_compiled_number(state.interp.code).get();
-
-			check_stack_len_ge("?", 1);
-
-			if (pop(state.stack) == 0) ++state.skip;
-
-			run_compiled_section(next_len);
-		} };
-
-		assert(compile_raw_func(&compiled).get() == 2);
-		assert(compile_number(0).get() == 2);
-		uint32_t &size = state.code[state.code_len-1].lit;
-
-		get_word();
-		size = Value::parse(
-			&state.line[state.interp.word.pos],
-			state.interp.word.len
-		).get().compile().get();
 	}, true },
 	{ "rep_and", "n -- ??? n ; repeat the next word n times, and push n to the stack", []() {
 		if (!state.compiling) {
