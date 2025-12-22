@@ -21,32 +21,12 @@ namespace {
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t LINE_BUF_LEN = 128; // in order to support more complex pre-defined words
 static_assert(LINE_BUF_LEN >= MAX_LINE_LEN, "a line should be able to contain at least MAX_LINE_LEN characters");
-constexpr size_t EST_DESC_LEN = 64;
-constexpr size_t DESC_BUF_LEN = WORDS_SIZE * EST_DESC_LEN;
-constexpr size_t EST_NAME_LEN = 4;
-constexpr size_t NAME_BUF_LEN = WORDS_SIZE * EST_NAME_LEN;
-constexpr size_t CODE_BUF_SIZE = WORDS_SIZE*64;
 struct State {
 	bool should_quit = false;
 	bool capslock = false;
 	size_t line_len = 0;
-	char line[LINE_BUF_LEN];
-	ProgramState program_state {
-		.stack {},
-		.code {},
-		.error = nullptr,
-		.error_handled = false,
-
-		.words {},
-		.primitives = nullptr,
-		.primitives_len = 0,
-		.syntax = syntax,
-		.syntax_len = syntax_len,
-	};
-	size_t word_descs_len = 0;
-	char word_descs[DESC_BUF_LEN];
-	size_t word_names_len = 0;
-	char word_names[NAME_BUF_LEN];
+	char line[LINE_BUF_LEN] {};
+	ProgramState program_state;
 	bool has_inp_err = false;
 	uint32_t inp_err_until = 0;
 
@@ -55,7 +35,7 @@ struct State {
 	State(State&&) = default;
 	State &operator=(State&&) = default;
 };
-static State state{};
+static State *state_ptr = nullptr;
 bool mieliepit_running = false;
 
 using namespace sdk::util;
@@ -339,10 +319,10 @@ Primitive primitives[] = {
 
 	/* SYSTEM OPERATION */
 	{ "exit", "-- ; exits the mieliepit interpreter", [](pstate_t&) {
-		state.should_quit = true;
+		state_ptr->should_quit = true;
 	} },
 	{ "quit", "-- ; exits the mieliepit interpreter", [](pstate_t&) {
-		state.should_quit = true;
+		state_ptr->should_quit = true;
 	} },
 	// TODO: sleep functions perhaps, clearing the keyboard buffer when done? Essentially ignoring all user input while sleeping
 
@@ -647,9 +627,9 @@ Primitive primitives[] = {
 #undef error
 
 void input_key(ps2::Key, char ch, bool capitalise) {
-	if (state.line_len == MAX_LINE_LEN) {
-		state.has_inp_err = true;
-		state.inp_err_until = pit::millis + 100;
+	if (state_ptr->line_len == MAX_LINE_LEN) {
+		state_ptr->has_inp_err = true;
+		state_ptr->inp_err_until = pit::millis + 100;
 
 		const auto _ = sdk::ColorSwitch(
 			vga::Color::Black,
@@ -664,40 +644,40 @@ void input_key(ps2::Key, char ch, bool capitalise) {
 	// wait, I can't enter those on the keyboard anyways...
 	// first I'd need a way to enter them
 	if (capitalise && 'a' <= ch && ch <= 'z') ch ^= 'a'^'A';
-	state.line[state.line_len++] = ch;
+	state_ptr->line[state_ptr->line_len++] = ch;
 	putchar(ch);
 
-	if (state.line_len == MAX_LINE_LEN) term::cursor::disable();
+	if (state_ptr->line_len == MAX_LINE_LEN) term::cursor::disable();
 }
 
 void interpret_line() {
 	Interpreter interpreter {
-		.line = state.line,
-		.len = state.line_len,
+		.line = state_ptr->line,
+		.len = state_ptr->line_len,
 		.action = Interpreter::Run,
 		.curr_word = {},
-		.state = state.program_state,
+		.state = state_ptr->program_state,
 	};
-	state.program_state.error = nullptr;
-	state.program_state.error_handled = false;
+	state_ptr->program_state.error = nullptr;
+	state_ptr->program_state.error_handled = false;
 
-	while (!state.program_state.error && interpreter.len > 0) {
+	while (!state_ptr->program_state.error && interpreter.len > 0) {
 		interpreter.advance();
 	}
 
-	if (state.program_state.error) {
+	if (state_ptr->program_state.error) {
 		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
 
-		if (!state.program_state.error_handled) {
+		if (!state_ptr->program_state.error_handled) {
 			putchar('\n');
-			puts(state.program_state.error);
+			puts(state_ptr->program_state.error);
 		}
 		if (interpreter.len == 0) {
 			puts("@ end of line");
 		} else {
 			printf(
 				"@ word starting at %u: ",
-				interpreter.line - state.line
+				interpreter.line - state_ptr->line
 			);
 			for (size_t i = 0; i < interpreter.curr_word.len; ++i) {
 				putchar(interpreter.curr_word.text[i]);
@@ -705,7 +685,7 @@ void interpret_line() {
 			putchar('\n');
 		}
 
-		state.program_state.error_handled = true;
+		state_ptr->program_state.error_handled = true;
 	} else {
 		putchar('\n');
 	}
@@ -719,29 +699,29 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 	if (key_ascii_map[key] && key != KEY_ENTER) {
 		const bool capitalise = key_state[KEY_LSHIFT]
 			|| key_state[KEY_RSHIFT]
-			|| state.capslock;
+			|| state_ptr->capslock;
 		input_key(key, key_ascii_map[key], capitalise);
 		return;
 	}
 
 	if (key == KEY_BACKSPACE) {
-		if (state.line_len == 0) return;
+		if (state_ptr->line_len == 0) return;
 
-		if (state.has_inp_err) {
-			state.has_inp_err = false;
+		if (state_ptr->has_inp_err) {
+			state_ptr->has_inp_err = false;
 
 			term::advance();
 			term::backspace();
 		}
 
-		--state.line_len;
+		--state_ptr->line_len;
 		term::backspace();
 		term::cursor::enable(8, 15);
 	}
 
 	if (key == KEY_ENTER) {
-		if (state.has_inp_err) {
-			state.has_inp_err = false;
+		if (state_ptr->has_inp_err) {
+			state_ptr->has_inp_err = false;
 
 			term::advance();
 			term::backspace();
@@ -749,7 +729,7 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 
 		putchar('\n');
 		interpret_line();
-		state.line_len = 0;
+		state_ptr->line_len = 0;
 		term::writestring("> ");
 		term::cursor::enable(8, 15);
 		return;
@@ -769,9 +749,61 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 void main() {
 	assert(!mieliepit_running);
 	mieliepit_running = true;
-	state = State{};
-	state.program_state.primitives = primitives;
-	state.program_state.primitives_len = sizeof(primitives)/sizeof(*primitives);
+	State state{
+		.program_state = ProgramState(
+			primitives, sizeof(primitives)/sizeof(*primitives),
+			syntax, syntax_len
+		),
+	};
+	state_ptr = &state;
+
+	idx_t not_idx = 0;
+	idx_t inc_idx = 0;
+	idx_t add_idx = 0;
+	idx_t swap_idx = 0;
+
+	{
+		for (idx_t i = 0; i < state.program_state.primitives_len; ++i) {
+			if (strcmp(state.program_state.primitives[i].name, "not") == 0) {
+				not_idx = i;
+			}
+			if (strcmp(state.program_state.primitives[i].name, "inc") == 0) {
+				inc_idx = i;
+			}
+			if (strcmp(state.program_state.primitives[i].name, "+") == 0) {
+				add_idx = i;
+			}
+			if (strcmp(state.program_state.primitives[i].name, "swap") == 0) {
+				swap_idx = i;
+			}
+		}
+	}
+
+	Interpreter temp_interpreter = {
+		.line = 0,
+		.len = 0,
+		.action = Interpreter::Compile,
+		.curr_word = {},
+		.state = state.program_state,
+	};
+
+	idx_t code_start = length(state.program_state.code);
+	size_t code_len = 0;
+
+	code_len += temp_interpreter.compile_primitive_idx(not_idx).get();
+	code_len += temp_interpreter.compile_primitive_idx(inc_idx).get();
+	code_len += temp_interpreter.compile_primitive_idx(add_idx).get();
+
+	state.program_state.define_word("-", 1, "a b -- a-b", 10, code_start, code_len);
+
+	code_start = length(state.program_state.code);
+	code_len = 0;
+
+	code_len += temp_interpreter.compile_number({ .pos = 0 }).get();
+	code_len += temp_interpreter.compile_primitive_idx(swap_idx).get();
+	code_len += temp_interpreter.compile_word_idx(0).get();
+
+	state.program_state.define_word("neg", 3, "a -- -a", 7, code_start, code_len);
 
 	/*
 	run_line(": - ( a b -- a-b ) not inc + ;");
