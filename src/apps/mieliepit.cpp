@@ -40,60 +40,6 @@ bool mieliepit_running = false;
 
 using namespace sdk::util;
 
-/*
-RawFunction print_raw = { "<internal:print_raw>", []() {
-	check_stack_len_ge("<internal:print_raw>", 1);
-	const char *str = reinterpret_cast<const char*>(pop(state.stack));
-	term::writestring(str);
-} };
-void print_definition(uint32_t word_idx);
-RawFunction raw_print_definition = { "<internal:print_definition>", []() {
-	check_stack_len_ge("<internal:print_definition>", 1);
-	print_definition(pop(state.stack));
-} };
-RawFunction recurse = { "rec", []() {
-	state.interp.code.idx = 0;
-} };
-RawFunction rf_return = { "ret", []() {
-	state.interp.code.idx = state.interp.code.len;
-} };
-const PrimitiveEntry primitives[] = {
-	{ NULL, NULL, NULL },
-};
-constexpr size_t primitives_len = sizeof(primitives)/sizeof(*primitives) - 1;
-void print_definition(uint32_t word_idx) {
-	printf(
-		": %s ( %s )",
-		state.words[word_idx].name,
-		state.words[word_idx].desc
-	);
-	// no checking as to validity
-	CodePos pos = {
-		.pos = state.words[word_idx].code_pos,
-		.idx = 0,
-		.len = state.words[word_idx].code_len,
-	};
-	while (pos.idx < pos.len) {
-		const auto value = Value::read_compiled(pos).get();
-		switch (value.type) {
-			case ValueType::Word: {
-				printf(" %s", state.words[value.word].name);
-			} break;
-			case ValueType::Primitive: {
-				printf(" %s", primitives[value.primitive].name);
-			} break;
-			case ValueType::Number: {
-				printf(" %u", value.number);
-			} break;
-			case ValueType::RawFunction: {
-				printf(" %s", value.raw_function->name);
-			} break;
-		}
-	}
-	printf(" ;");
-}
-*/
-
 #define error(msg) do { \
 		state.error = msg; \
 		state.error_handled = false; \
@@ -631,15 +577,48 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 	}
 }
 
+void interpret_str(const char *str) {
+	Interpreter interpreter {
+		.line = str,
+		.len = strlen(str),
+		.action = Interpreter::Run,
+		.curr_word = {},
+		.state = state_ptr->program_state,
+	};
+	state_ptr->program_state.error = nullptr;
+	state_ptr->program_state.error_handled = false;
+
+	while (!state_ptr->program_state.error && interpreter.len > 0) {
+		interpreter.advance();
+	}
+
+	if (state_ptr->program_state.error) {
+		const auto _ = sdk::ColorSwitch(vga::Color::LightRed);
+
+		if (!state_ptr->program_state.error_handled) {
+			putchar('\n');
+			puts(state_ptr->program_state.error);
+		}
+		if (interpreter.len == 0) {
+			puts("@ end of line");
+		} else {
+			printf(
+				"@ word starting at %u: ",
+				interpreter.line - str
+			);
+			for (size_t i = 0; i < interpreter.curr_word.len; ++i) {
+				putchar(interpreter.curr_word.text[i]);
+			}
+			putchar('\n');
+		}
+
+		state_ptr->program_state.error_handled = true;
+	} else {
+		putchar('\n');
+	}
 }
 
-#define run_line(code) do { \
-		state.line_len = strlen(code); \
-		assert(state.line_len < LINE_BUF_LEN); \
-		memcpy(state.line, (code), state.line_len); \
-		interpret_line(); \
-		state.line_len = 0; \
-	} while (0)
+}
 
 void main() {
 	assert(!mieliepit_running);
@@ -652,71 +631,22 @@ void main() {
 	};
 	state_ptr = &state;
 
-	idx_t not_idx = 0;
-	idx_t inc_idx = 0;
-	idx_t add_idx = 0;
-	idx_t swap_idx = 0;
+	interpret_str(": - ( a b -- a-b ) not inc + ;");
+	interpret_str(": neg ( a -- -a ) 0 swap - ;");
 
-	{
-		for (idx_t i = 0; i < state.program_state.primitives_len; ++i) {
-			if (strcmp(state.program_state.primitives[i].name, "not") == 0) {
-				not_idx = i;
-			}
-			if (strcmp(state.program_state.primitives[i].name, "inc") == 0) {
-				inc_idx = i;
-			}
-			if (strcmp(state.program_state.primitives[i].name, "+") == 0) {
-				add_idx = i;
-			}
-			if (strcmp(state.program_state.primitives[i].name, "swap") == 0) {
-				swap_idx = i;
-			}
-		}
-	}
+	interpret_str(": *_under ( a b -- a a*b ) swap dup rot * ;");
+	// TODO: the following doesn't compile, since rep isn't defined yet
+	interpret_str(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
 
-	Interpreter temp_interpreter = {
-		.line = 0,
-		.len = 0,
-		.action = Interpreter::Compile,
-		.curr_word = {},
-		.state = state.program_state,
-	};
+	interpret_str(": != ( a b -- a!=b ) = not ;");
+	interpret_str(": <= ( a b -- a<=b ) dup rot dup rot < unrot = or ;");
+	interpret_str(": >= ( a b -- a>=b ) < not ;");
+	interpret_str(": > ( a b -- a>=b ) <= not ;");
 
-	idx_t code_start = length(state.program_state.code);
-	size_t code_len = 0;
+	interpret_str(": truthy? ( a -- a!=false ) false != ;");
 
-	code_len += temp_interpreter.compile_primitive_idx(not_idx).get();
-	code_len += temp_interpreter.compile_primitive_idx(inc_idx).get();
-	code_len += temp_interpreter.compile_primitive_idx(add_idx).get();
-
-	state.program_state.define_word("-", 1, "a b -- a-b", 10, code_start, code_len);
-
-	code_start = length(state.program_state.code);
-	code_len = 0;
-
-	code_len += temp_interpreter.compile_number({ .pos = 0 }).get();
-	code_len += temp_interpreter.compile_primitive_idx(swap_idx).get();
-	code_len += temp_interpreter.compile_word_idx(0).get();
-
-	state.program_state.define_word("neg", 3, "a -- -a", 7, code_start, code_len);
-
-	/*
-	run_line(": - ( a b -- a-b ) not inc + ;");
-	run_line(": neg ( a -- -a ) 0 swap - ;");
-
-	run_line(": *_under ( a b -- a a*b ) swap dup rot * ;");
-	run_line(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
-
-	run_line(": != ( a b -- a!=b ) = not ;");
-	run_line(": <= ( a b -- a<=b ) dup rot dup rot < unrot = or ;");
-	run_line(": >= ( a b -- a>=b ) < not ;");
-	run_line(": > ( a b -- a>=b ) <= not ;");
-
-	run_line(": truthy? ( a -- a!=false ) false != ;");
-
-	run_line(": show_top ( a -- a ; prints the topmost stack element ) dup print ;");
-	run_line(": clear ( ... - ; clears the stack ) stack_len 0 = ? ret drop rec ;");
-	*/
+	interpret_str(": show_top ( a -- a ; prints the topmost stack element ) dup print ;");
+	interpret_str(": clear ( ... - ; clears the stack ) stack_len 0 = ? ret drop rec ;");
 
 	term::clear();
 	term::go_to(0, 0);
