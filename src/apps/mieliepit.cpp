@@ -68,7 +68,6 @@ void interpret_line() {
 	Interpreter interpreter {
 		.line = state_ptr->line,
 		.len = state_ptr->line_len,
-		.action = Interpreter::Run,
 		.curr_word = {},
 		.state = state_ptr->program_state,
 	};
@@ -76,7 +75,7 @@ void interpret_line() {
 	state_ptr->program_state.error_handled = false;
 
 	while (!state_ptr->program_state.error && interpreter.len > 0) {
-		interpreter.advance();
+		interpreter.run_next();
 	}
 
 	if (state_ptr->program_state.error) {
@@ -154,7 +153,6 @@ void interpret_str(const char *str) {
 	Interpreter interpreter {
 		.line = str,
 		.len = strlen(str),
-		.action = Interpreter::Run,
 		.curr_word = {},
 		.state = state_ptr->program_state,
 	};
@@ -162,7 +160,7 @@ void interpret_str(const char *str) {
 	state_ptr->program_state.error_handled = false;
 
 	while (!state_ptr->program_state.error && interpreter.len > 0) {
-		interpreter.advance();
+		interpreter.run_next();
 	}
 
 	if (state_ptr->program_state.error) {
