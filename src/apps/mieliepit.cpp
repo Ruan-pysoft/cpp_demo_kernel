@@ -250,7 +250,6 @@ void main() {
 	interpret_str(": neg ( a -- -a ) 0 swap - ;");
 
 	interpret_str(": *_under ( a b -- a a*b ) swap dup rot * ;");
-	// TODO: the following doesn't compile, since rep isn't defined yet
 	interpret_str(": ^ ( a b -- a^b ; a to the power b ) 1 swap rep *_under swap drop ;");
 
 	interpret_str(": != ( a b -- a!=b ) = not ;");
