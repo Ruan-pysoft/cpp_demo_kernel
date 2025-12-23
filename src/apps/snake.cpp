@@ -8,6 +8,7 @@
 #include <sdk/eventloop.hpp>
 #include <sdk/terminal.hpp>
 #include <sdk/random.hpp>
+#include <sdk/util.hpp>
 
 #include "ps2.hpp"
 #include "vga.hpp"
@@ -94,14 +95,15 @@ public:
 	Direction get_facing() const {
 		return facing;
 	}
-	void look(Direction dir) {
+	bool look(Direction dir) {
 		if (has_prev_facing) {
-			if (prev_facing == Direction::Left && dir == Direction::Right) return;
-			if (prev_facing == Direction::Down && dir == Direction::Up) return;
-			if (prev_facing == Direction::Up && dir == Direction::Down) return;
-			if (prev_facing == Direction::Right && dir == Direction::Left) return;
+			if (prev_facing == Direction::Left && dir == Direction::Right) return false;
+			if (prev_facing == Direction::Down && dir == Direction::Up) return false;
+			if (prev_facing == Direction::Up && dir == Direction::Down) return false;
+			if (prev_facing == Direction::Right && dir == Direction::Left) return false;
 		}
 		facing = dir;
+		return true;
 	}
 
 	void update(State &state);
@@ -218,8 +220,13 @@ void draw() {
 
 }
 
+void update(State &state);
+void draw(State &state);
+
 void handle_keypress(State &state, ps2::Event event) {
 	if (event.type == ps2::EventType::Press) {
+		sdk::util::Maybe<Direction> new_facing{};
+
 		switch (event.key) {
 			case ps2::KEY_Q:
 			case ps2::KEY_ESCAPE: {
@@ -239,24 +246,31 @@ void handle_keypress(State &state, ps2::Event event) {
 			case ps2::KEY_LEFT:
 			case ps2::KEY_A:
 			case ps2::KEY_H: {
-				state.snake.look(Direction::Left);
+				new_facing = Direction::Left;
 			} break;
 			case ps2::KEY_DOWN:
 			case ps2::KEY_D:
 			case ps2::KEY_J: {
-				state.snake.look(Direction::Down);
+				new_facing = Direction::Down;
 			} break;
 			case ps2::KEY_UP:
 			case ps2::KEY_W:
 			case ps2::KEY_K: {
-				state.snake.look(Direction::Up);
+				new_facing = Direction::Up;
 			} break;
 			case ps2::KEY_RIGHT:
 			case ps2::KEY_S:
 			case ps2::KEY_L: {
-				state.snake.look(Direction::Right);
+				new_facing = Direction::Right;
 			} break;
 			default: break;
+		}
+
+		if (state.mode == Mode::Game && new_facing.has) {
+			if (state.snake.look(new_facing.get())) {
+				update(state);
+				draw(state);
+			}
 		}
 	}
 }
