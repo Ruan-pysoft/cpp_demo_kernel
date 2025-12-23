@@ -78,6 +78,8 @@ $CC $CFLAGS -c $SRCDIR/apps/mieliepit.cpp -o $BUILDDIR/apps/mieliepit.o
 OBJS="$OBJS $BUILDDIR/apps/mieliepit.o"
 $CC $CFLAGS -c $SRCDIR/apps/editor.cpp -o $BUILDDIR/apps/editor.o
 OBJS="$OBJS $BUILDDIR/apps/editor.o"
+$CC $CFLAGS -c $SRCDIR/apps/uptime.cpp -o $BUILDDIR/apps/uptime.o
+OBJS="$OBJS $BUILDDIR/apps/uptime.o"
 
 $CC $CFLAGS -c $SRCDIR/apps/components/menu.cpp -o $BUILDDIR/apps/component-menu.o
 OBJS="$OBJS $BUILDDIR/apps/component-menu.o"

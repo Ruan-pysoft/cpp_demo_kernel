@@ -10,6 +10,7 @@
 #include <sdk/random.hpp>
 #include <sdk/util.hpp>
 
+#include "pit.hpp"
 #include "ps2.hpp"
 #include "vga.hpp"
 
@@ -141,6 +142,7 @@ struct State {
 	Snake snake{};
 	Pos apple;
 	int score = 0;
+	uint32_t last_move_time = 0;
 };
 
 namespace help_menu {
@@ -322,7 +324,10 @@ void draw(State &state) {
 }
 
 void update(State &state) {
-	if (!state.lost) state.snake.update(state);
+	if (!state.lost) {
+		state.snake.update(state);
+		state.last_move_time = pit::millis;
+	}
 	state.blink_state = !state.blink_state;
 }
 
