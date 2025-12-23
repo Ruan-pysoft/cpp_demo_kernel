@@ -111,9 +111,8 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 
 	if (key_ascii_map[key] && key != KEY_ENTER) {
 		const bool capitalise = key_state[KEY_LSHIFT]
-			|| key_state[KEY_RSHIFT]
-			|| state_ptr->capslock;
-		input_key(key, key_ascii_map[key], capitalise);
+			|| key_state[KEY_RSHIFT];
+		input_key(key, key_ascii_map[key], capitalise ^ state_ptr->capslock);
 		return;
 	}
 
@@ -146,6 +145,10 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		term::writestring("> ");
 		term::cursor::enable(8, 15);
 		return;
+	}
+
+	if (key == KEY_CAPSLOCK) {
+		state_ptr->capslock = !state_ptr->capslock;
 	}
 }
 
