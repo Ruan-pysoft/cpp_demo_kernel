@@ -52,7 +52,7 @@ namespace term {
 class Backbuffer {
 	static size_t instance_count;
 	vga::entry_t buffer[vga::WIDTH*vga::HEIGHT];
-	bool cursor_was_enabled;
+	bool was_moving_cursor;
 public:
 	Backbuffer();
 	~Backbuffer();

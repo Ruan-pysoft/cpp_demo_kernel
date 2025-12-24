@@ -22,13 +22,13 @@ volatile vga::entry_t *buffer;
 }
 
 size_t Backbuffer::instance_count = 0;
-Backbuffer::Backbuffer() : cursor_was_enabled(cursor::is_enabled()) {
+Backbuffer::Backbuffer() : was_moving_cursor(move_cursor) {
 	if (instance_count == 0) {
 		::term::buffer = this->buffer;
 		memcpy(this->buffer, (void*)vga_buffer, sizeof(buffer));
 	}
 	++instance_count;
-	cursor::disable();
+	move_cursor = false;
 }
 Backbuffer::~Backbuffer() {
 	--instance_count;
@@ -36,7 +36,10 @@ Backbuffer::~Backbuffer() {
 		::term::buffer = vga_buffer;
 		memcpy((void*)vga_buffer, buffer, sizeof(buffer));
 	}
-	if (cursor_was_enabled) cursor::enable();
+	if (was_moving_cursor) {
+		move_cursor = true;
+		cursor::go_to(col, row);
+	}
 }
 
 void init() {
