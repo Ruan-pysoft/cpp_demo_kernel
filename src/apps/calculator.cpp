@@ -65,7 +65,7 @@ struct Line {
 bool errored = false;
 
 #define write_error(msg) do { \
-		term::writestring(msg "\n"); \
+		term::writestring("Error: " msg "\n"); \
 		term::writestring("Here: "); \
 		term::write(line.text, line.len); \
 		term::putchar('\n'); \
@@ -111,6 +111,28 @@ Maybe<int> parse_num(Line &line) {
 	return *(int*)&num;
 }
 
+Maybe<int> eval_base_term(Line &line) {
+	const auto initial = line;
+
+	auto res = parse_num(line);
+	if (errored) {
+		line = initial;
+		return {};
+	}
+	if (res.has) {
+		return res;
+	}
+
+	line.skip_space();
+	if (line.next_is('_')) {
+		line.advance();
+		return memory.prev_result;
+	}
+
+	line = initial;
+	return {};
+}
+
 Maybe<int> eval_expr(Line &line);
 Maybe<int> eval_parenthesised(Line &line) {
 	const auto initial = line;
@@ -135,7 +157,7 @@ Maybe<int> eval_parenthesised(Line &line) {
 			error("expected closing parenthesis");
 		}
 	} else {
-		return parse_num(line);
+		return eval_base_term(line);
 	}
 }
 
@@ -355,6 +377,7 @@ void input_key(ps2::Key key, char ch, bool capitalise) {
 	} else if (key == ps2::KEY_ENTER) {
 		term::putchar('\n');
 		eval_line();
+		term::writestring("> ");
 	} else {
 		if (capitalise && 'a' <= ch && ch <= 'z') ch ^= 'a'^'A';
 		state.line[state.line_len++] = ch;
@@ -390,6 +413,13 @@ void main() {
 
 	term::clear();
 	term::go_to(0, 0);
+
+	term::writestring("This is a basic calculator supporting order of operations.\n");
+	term::writestring("The following binary operations are supported: + - * / % ^\n");
+	term::writestring("The following unary operations are supported: + -\n");
+	term::writestring("Type _ to get the previous result.\n");
+
+	term::writestring("> ");
 
 	while (!state.should_quit) {
 		const bool had_events = !ps2::events.empty();
