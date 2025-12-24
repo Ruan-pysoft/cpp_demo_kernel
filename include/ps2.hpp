@@ -201,6 +201,11 @@ public:
 	T pop();
 	const T &peek() const;
 	T &peek();
+
+	uint8_t len() const {
+		if (tail >= head) return tail - head;
+		return (~head)+1 + tail;
+	}
 };
 
 template class ByteRingBuffer<Event>;
