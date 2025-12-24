@@ -100,6 +100,40 @@ Maybe<int> parse_num(Line &line) {
 	return *(int*)&num;
 }
 
+Maybe<int> eval_pre_unary(Line &line) {
+	// TODO: handle overflow?
+
+	const auto initial = line;
+
+	bool negate = false;
+
+	while (true) {
+		while (line.next_is('+')) line.advance();
+
+		const auto num = parse_num(line);
+		if (errored) {
+			line = initial;
+			return {};
+		}
+		if (num.has) {
+			return negate ? -num.get() : num.get();
+		}
+
+		line.skip_space();
+		if (line.next_is('-')) {
+			negate = !negate;
+			line.advance();
+		} else if (!line.next_is('+')) {
+			term::writestring("ERROR: Expected expression after unary prefix!\n");
+			term::writestring("Here: ");
+			term::write(line.text, line.len);
+			line = initial;
+			errored = true;
+			return {};
+		}
+	}
+}
+
 Maybe<int> eval_term(Line &line) {
 	// TODO: handle overflow?
 
@@ -107,13 +141,16 @@ Maybe<int> eval_term(Line &line) {
 
 	int res = 0;
 
-	auto num = parse_num(line);
+	auto num = eval_pre_unary(line);
 	if (errored) {
 		line = initial;
 		return {};
 	}
 	if (!num.has) {
 		term::writestring("ERROR: Expected expression!\n");
+		term::writestring("Here: ");
+		term::write(line.text, line.len);
+		line = initial;
 		errored = true;
 		return {};
 	}
@@ -124,13 +161,16 @@ Maybe<int> eval_term(Line &line) {
 		const char op = *line.text;
 		line.advance();
 
-		num = parse_num(line);
+		num = eval_pre_unary(line);
 		if (errored) {
 			line = initial;
 			return {};
 		}
 		if (!num.has) {
 			term::writestring("Error: Expected expression!\n");
+			term::writestring("Here: ");
+			term::write(line.text, line.len);
+			line = initial;
 			errored = true;
 			return {};
 		}
@@ -152,6 +192,7 @@ Maybe<int> eval_expr(Line &line) {
 }
 
 void eval_line() {
+	errored = false;
 	Line line = {
 		state.line,
 		state.line_len,
