@@ -4,7 +4,7 @@
    - power, factorial [ power of done ]
    - multiplication, division, modulo [ ALL DONE ]
    - add, subtract, negate [ ALL DONE ]
-   - variable assignment & use
+   - variable assignment & use [ ALL DONE ]
    - true/false + equation checking? (probably for v2)
    - functions: ... something?
    - allow range-based stuff? (sum, product, etc)

@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <sdk/util.hpp>
 
@@ -10,8 +11,7 @@
 
 namespace calculator {
 
-template<typename T>
-using Maybe = sdk::util::Maybe<T>;
+using namespace sdk::util;
 
 namespace {
 
@@ -23,10 +23,66 @@ struct State {
 	size_t line_len = 0;
 };
 
+struct StringStore {
+	char *items = nullptr;
+	size_t count = 0;
+	size_t capacity = 0;
+
+	const char *add_string(const char *str) {
+		return add_string(str, strlen(str));
+	}
+	const char *add_string(const char *str, size_t len) {
+		if (count + len + 1 > capacity) {
+			const size_t new_cap = capacity == 0 ? 1024 - 32 : capacity * 2;
+			items = (char*)realloc(items, new_cap);
+			assert(items != nullptr);
+		}
+
+		const char *const res = &items[count];
+		for (size_t i = 0; i < len; ++i) {
+			items[count + i] = str[i];
+		}
+		items[count + len] = 0;
+		count += len + 1;
+
+		return res;
+	}
+};
+
 struct Memory {
 	// persistent storage
 
 	int prev_result = 0;
+	StringStore variable_names {};
+	List<Pair<const char*, int>> variables;
+
+	int* get_variable(const char *name) {
+		return get_variable(name, strlen(name));
+	}
+	int* get_variable(const char *name, size_t name_len) {
+		for (auto &var : variables) {
+			if (strlen(var.first) != name_len) continue;
+			if (strncmp(var.first, name, name_len) == 0) {
+				return &var.second;
+			}
+		}
+
+		return nullptr;
+	}
+	void set_variable(const char *name, int value) {
+		set_variable(name, strlen(name), value);
+	}
+	void set_variable(const char *name, size_t name_len, int value) {
+		auto val = get_variable(name, name_len);
+		if (val) {
+			*val = value;
+		} else {
+			variables.push_back({
+				variable_names.add_string(name, name_len),
+				value
+			});
+		}
+	}
 } memory {};
 
 State state;
@@ -111,6 +167,23 @@ Maybe<int> parse_num(Line &line) {
 	return *(int*)&num;
 }
 
+Maybe<Pair<const char*, size_t>> parse_variable_name(Line &line) {
+	const auto initial = line;
+
+	line.skip_space();
+
+	if (!line.next_alpha()) {
+		line = initial;
+		return {};
+	}
+
+	const char *name = line.text;
+	while (line.next_alpha()) line.advance();
+	const size_t name_len = line.text - name;
+
+	return { { name, name_len } };
+}
+
 Maybe<int> eval_base_term(Line &line) {
 	const auto initial = line;
 
@@ -121,6 +194,20 @@ Maybe<int> eval_base_term(Line &line) {
 	}
 	if (res.has) {
 		return res;
+	}
+
+	auto var = parse_variable_name(line);
+	if (errored) {
+		line = initial;
+		return {};
+	}
+	if (var.has) {
+		const auto val = memory.get_variable(var.get().first, var.get().second);
+		if (val) {
+			return *val;
+		} else {
+			error("undefined variable");
+		}
 	}
 
 	line.skip_space();
@@ -333,8 +420,48 @@ Maybe<int> eval_term(Line &line) {
 	return res;
 }
 
+Maybe<int> eval_assignment(Line &line) {
+	const auto initial = line;
+
+	const auto var = parse_variable_name(line);
+	if (errored) {
+		line = initial;
+		return {};
+	}
+
+	if (var.has) {
+		line.skip_space();
+
+		if (line.next_is('=')) {
+			line.advance();
+
+			const auto num = eval_expr(line);
+			if (errored) {
+				line = initial;
+				return {};
+			}
+			if (num.has) {
+				memory.set_variable(
+					var.get().first,
+					var.get().second,
+					num.get()
+				);
+				return num.get();
+			} else {
+				error("expected expression");
+			}
+
+		} else {
+			line = initial;
+			return eval_term(line);
+		}
+	} else {
+		return eval_term(line);
+	}
+}
+
 Maybe<int> eval_expr(Line &line) {
-	return eval_term(line);
+	return eval_assignment(line);
 }
 
 void eval_line() {
@@ -424,8 +551,6 @@ void main() {
 	term::writestring("> ");
 
 	while (!state.should_quit) {
-		const bool had_events = !ps2::events.empty();
-
 		while (!ps2::events.empty()) {
 			const auto event = ps2::events.pop();
 			handle_keyevent(event.type, event.key);
