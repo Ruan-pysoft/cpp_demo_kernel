@@ -3,10 +3,15 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include <sdk/util.hpp>
+
 #include "ps2.hpp"
 #include "vga.hpp"
 
 namespace calculator {
+
+template<typename T>
+using Maybe = sdk::util::Maybe<T>;
 
 namespace {
 
@@ -26,77 +31,154 @@ struct Memory {
 
 State state;
 
-void eval_line() {
-	const char *line = state.line;
-	size_t line_len = state.line_len;
-	state.line_len = 0;
+struct Line {
+	const char *text;
+	size_t len;
 
-	while (line_len && *line == ' ') {
-		++line;
-		--line_len;
+	void advance() {
+		if (len) {
+			++text;
+			--len;
+		}
 	}
 
-	if (line_len && *line == '_') {
-		++line;
-		--line_len;
-
-		while (line_len && *line == ' ') {
-			++line;
-			--line_len;
-		}
-
-		if (line_len) {
-			term::writestring("ERROR: Extraneous characters after number!\n");
-			return;
-		}
-
-		printf("%d\n", memory.prev_result);
-
-		return;
+	bool next_is(char ch) {
+		return len && *text == ch;
+	}
+	bool next_between(char a, char b) {
+		return len && a <= *text && *text <= b;
+	}
+	bool next_numeric() {
+		return next_between('0', '9');
+	}
+	bool next_alpha() {
+		return next_between('a', 'z') || next_between('A', 'Z');
 	}
 
-	const bool neg = line_len && *line == '-';
+	void skip_space() {
+		while (len && *text == ' ') {
+			advance();
+		}
+	}
+};
+
+bool errored = false;
+
+Maybe<int> parse_num(Line &line) {
+	const auto initial = line;
+
+	line.skip_space();
+
+	const bool neg = line.next_is('-');
 	if (neg) {
-		++line;
-		--line_len;
+		line.advance();
 	}
 
-	if (!line_len) {
-		term::writestring("ERROR: Please enter a number!\n");
-		return;
+	if (!line.next_numeric()) {
+		line = initial;
+		return {};
 	}
 
 	uint32_t num = 0;
-	while (line_len && '0' <= *line && *line <= '9') {
+	while (line.next_numeric()) {
 		const uint32_t old_num = num;
 		num *= 10;
-		num += *line - '0';
+		num += *line.text - '0';
 
-		++line;
-		--line_len;
+		line.advance();
 
 		// I'm not sure if this overflow logic is correct?
 		if (num < old_num || ((num & (1u<<31)) && !(num == (1u<<31) && neg))) {
 			term::writestring("ERROR: Integer overflow!\n");
-			return;
+			errored = true;
+			return {};
 		}
 	}
 
-	while (line_len && *line == ' ') {
-		++line;
-		--line_len;
+	if (neg) num = (~num)+1;
+
+	return *(int*)&num;
+}
+
+Maybe<int> eval_term(Line &line) {
+	// TODO: handle overflow?
+
+	const auto initial = line;
+
+	int res = 0;
+
+	auto num = parse_num(line);
+	if (errored) {
+		line = initial;
+		return {};
+	}
+	if (!num.has) {
+		term::writestring("ERROR: Expected expression!\n");
+		errored = true;
+		return {};
+	}
+	res = num.get();
+
+	line.skip_space();
+	while (line.next_is('+') || line.next_is('-')) {
+		const char op = *line.text;
+		line.advance();
+
+		num = parse_num(line);
+		if (errored) {
+			line = initial;
+			return {};
+		}
+		if (!num.has) {
+			term::writestring("Error: Expected expression!\n");
+			errored = true;
+			return {};
+		}
+
+		if (op == '+') {
+			res += num.get();
+		} else {
+			res -= num.get();
+		}
+
+		line.skip_space();
 	}
 
-	if (line_len) {
-		term::writestring("ERROR: Extraneous characters after number!\n");
+	return res;
+}
+
+Maybe<int> eval_expr(Line &line) {
+	return eval_term(line);
+}
+
+void eval_line() {
+	Line line = {
+		state.line,
+		state.line_len,
+	};
+	state.line_len = 0;
+
+	line.skip_space();
+
+	auto result = eval_expr(line);
+	if (errored) return;
+
+	if (result.has) {
+		printf("%d\n", result.get());
+		memory.prev_result = result.get();
+	} else {
+		term::writestring("ERROR: Please enter an expression!\n");
 		return;
 	}
 
-	if (neg) num = (~num)+1;
-	int inum = *(int*)&num;
-
-	printf("%d\n", inum);
-	memory.prev_result = inum;
+	line.skip_space();
+	if (line.len) {
+		term::writestring("ERROR: Extraneous characters after number!\n");
+		term::writestring(" Extra characters here: ");
+		term::write(line.text, line.len);
+		errored = true;
+		return;
+	}
 }
 
 void input_key(ps2::Key key, char ch, bool capitalise) {

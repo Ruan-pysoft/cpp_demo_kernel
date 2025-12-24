@@ -1,9 +1,9 @@
  - PEDMAS calculator
-   - numbers (int only or floats? first int, I think)
+   - numbers (int only or floats? first int, I think) [ ints done ]
    - ( parentheses )
    - power, factorial
    - multiplication, division, modulo
-   - add, subtract, negate
+   - add, subtract, negate [ add & subtract done ]
    - variable assignment & use
    - true/false + equation checking? (probably for v2)
    - functions: ... something?
