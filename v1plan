@@ -1,0 +1,31 @@
+ - PEDMAS calculator
+   - numbers (int only or floats? first int, I think)
+   - ( parentheses )
+   - power, factorial
+   - multiplication, division, modulo
+   - add, subtract, negate
+   - variable assignment & use
+   - true/false + equation checking? (probably for v2)
+   - functions: ... something?
+   - allow range-based stuff? (sum, product, etc)
+ - Minesweeper
+   - Do I want to avoid impossible setups?
+ - Memory inspector: stats + visual memory overview
+   - I think the visual overview should have its own seperate screen;
+     if a 64*16 screen area is used, need to represent 256 blocks per screen character
+     need possibly sixteen characters + 16 colour combinations to display?
+ - Key event viewer (maybe?)
+ - Text editor improvements:
+   - Navigation inside buffer (+ proper paging)
+   - Multiple buffers
+   - Open/New/Delete menu
+   - Vi mode?
+ - Terminal API improvements:
+   - Keep track of current cursor config, when enabling cursor auto-restore to previous config
+     (start & end scanlines)
+   - Auto-disable cursor when aquiring back-buffer? (only re-enable if previously was enabled)
+ - Snake improvements:
+   - don't move too soon after a user-initiated move (feels janky)
+ - Mieliepit improvements (maybe maybe? probably a v2 goal rather...)
+   - Remove the single-line constraints (allow longer functions)
+ - Migrate to better build system (nob.h probably)
