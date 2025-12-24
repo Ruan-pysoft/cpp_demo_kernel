@@ -16,6 +16,7 @@
 #include "apps/character_map.hpp"
 #include "apps/editor.hpp"
 #include "apps/uptime.hpp"
+#include "apps/calculator.hpp"
 #include "apps/queued_demo.hpp"
 #include "apps/callback_demo.hpp"
 #include "apps/ignore_demo.hpp"
@@ -97,6 +98,7 @@ constexpr MenuEntry menu_entries[] = {
 	{ "Display character map", character_map::main },
 	{ "Text Editor", editor::main },
 	{ "Uptime Tracker", uptime::main },
+	{ "PEDMAS Calculator", calculator::main },
 };
 constexpr size_t menu_entries_len = sizeof(menu_entries)/sizeof(*menu_entries);
 constexpr MenuEntry hidden_menu_entries[] = {
