@@ -181,9 +181,17 @@ Maybe<int> eval_pre_unary(Line &line) {
 	error("expected expression");
 }
 
-Maybe<int> eval_term(Line &line) {
-	// TODO: handle overflow?
+int ipow(int a, int b) {
+	if (b < 0) return 1 / ipow(a, -b);
+	int res = 1;
+	// TODO: binary exponentiation?
+	for (int i = 0; i < b; ++i) {
+		res *= a;
+	}
+	return res;
+}
 
+Maybe<int> eval_pow(Line &line) {
 	const auto initial = line;
 
 	int res = 0;
@@ -199,11 +207,90 @@ Maybe<int> eval_term(Line &line) {
 	res = num.get();
 
 	line.skip_space();
+	while (line.next_is('^')) {
+		line.advance();
+
+		num = eval_pre_unary(line);
+		if (errored) {
+			line = initial;
+			return {};
+		}
+		if (!num.has) {
+			error("expected expression");
+		}
+
+		res = ipow(res, num.get());
+	}
+
+	return res;
+}
+
+Maybe<int> eval_muldiv(Line &line) {
+	const auto initial = line;
+
+	int res = 0;
+
+	auto num = eval_pow(line);
+	if (errored) {
+		line = initial;
+		return {};
+	}
+	if (!num.has) {
+		error("expected expression");
+	}
+	res = num.get();
+
+	line.skip_space();
+	while (line.next_is('*') || line.next_is('/') || line.next_is('%')) {
+		const char op = *line.text;
+		line.advance();
+
+		num = eval_pow(line);
+		if (errored) {
+			line = initial;
+			return {};
+		}
+		if (!num.has) {
+			error("expected expression");
+		}
+
+		if (op == '*') {
+			res *= num.get();
+		} else if (op == '/') {
+			res /= num.get();
+		} else {
+			res %= num.get();
+		}
+
+		line.skip_space();
+	}
+
+	return res;
+}
+
+Maybe<int> eval_term(Line &line) {
+	// TODO: handle overflow?
+
+	const auto initial = line;
+
+	int res = 0;
+
+	auto num = eval_muldiv(line);
+	if (errored) {
+		line = initial;
+		return {};
+	}
+	if (!num.has) {
+		error("expected expression");
+	}
+	res = num.get();
+
+	line.skip_space();
 	while (line.next_is('+') || line.next_is('-')) {
 		const char op = *line.text;
 		line.advance();
 
-		num = eval_pre_unary(line);
+		num = eval_muldiv(line);
 		if (errored) {
 			line = initial;
 			return {};
