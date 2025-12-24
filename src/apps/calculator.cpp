@@ -64,6 +64,19 @@ struct Line {
 
 bool errored = false;
 
+#define write_error(msg) do { \
+		term::writestring(msg "\n"); \
+		term::writestring("Here: "); \
+		term::write(line.text, line.len); \
+		term::putchar('\n'); \
+	} while (0)
+#define error(msg) do { \
+		write_error(msg); \
+		line = initial; \
+		errored = true; \
+		return {}; \
+	} while (0)
+
 Maybe<int> parse_num(Line &line) {
 	const auto initial = line;
 
@@ -89,15 +102,41 @@ Maybe<int> parse_num(Line &line) {
 
 		// I'm not sure if this overflow logic is correct?
 		if (num < old_num || ((num & (1u<<31)) && !(num == (1u<<31) && neg))) {
-			term::writestring("ERROR: Integer overflow!\n");
-			errored = true;
-			return {};
+			error("integer overflow");
 		}
 	}
 
 	if (neg) num = (~num)+1;
 
 	return *(int*)&num;
+}
+
+Maybe<int> eval_expr(Line &line);
+Maybe<int> eval_parenthesised(Line &line) {
+	const auto initial = line;
+
+	line.skip_space();
+	if (line.next_is('(')) {
+		line.advance();
+		const auto res = eval_expr(line);
+		if (errored) {
+			line = initial;
+			return {};
+		}
+		if (!res.has) {
+			error("expected expression");
+		}
+
+		line.skip_space();
+		if (line.next_is(')')) {
+			line.advance();
+			return res.get();
+		} else {
+			error("expected closing parenthesis");
+		}
+	} else {
+		return parse_num(line);
+	}
 }
 
 Maybe<int> eval_pre_unary(Line &line) {
@@ -107,10 +146,14 @@ Maybe<int> eval_pre_unary(Line &line) {
 
 	bool negate = false;
 
-	while (true) {
-		while (line.next_is('+')) line.advance();
+	line.skip_space();
+	while (line.next_is('+') || line.next_is('-')) {
+		while (line.next_is('+')) {
+			line.advance();
+			line.skip_space();
+		}
 
-		const auto num = parse_num(line);
+		const auto num = eval_parenthesised(line);
 		if (errored) {
 			line = initial;
 			return {};
@@ -119,19 +162,23 @@ Maybe<int> eval_pre_unary(Line &line) {
 			return negate ? -num.get() : num.get();
 		}
 
-		line.skip_space();
 		if (line.next_is('-')) {
 			negate = !negate;
 			line.advance();
-		} else if (!line.next_is('+')) {
-			term::writestring("ERROR: Expected expression after unary prefix!\n");
-			term::writestring("Here: ");
-			term::write(line.text, line.len);
-			line = initial;
-			errored = true;
-			return {};
+			line.skip_space();
 		}
 	}
+
+	const auto num = eval_parenthesised(line);
+	if (errored) {
+		line = initial;
+		return {};
+	}
+	if (num.has) {
+		return negate ? -num.get() : num.get();
+	}
+
+	error("expected expression");
 }
 
 Maybe<int> eval_term(Line &line) {
@@ -147,12 +194,7 @@ Maybe<int> eval_term(Line &line) {
 		return {};
 	}
 	if (!num.has) {
-		term::writestring("ERROR: Expected expression!\n");
-		term::writestring("Here: ");
-		term::write(line.text, line.len);
-		line = initial;
-		errored = true;
-		return {};
+		error("expected expression");
 	}
 	res = num.get();
 
@@ -167,12 +209,7 @@ Maybe<int> eval_term(Line &line) {
 			return {};
 		}
 		if (!num.has) {
-			term::writestring("Error: Expected expression!\n");
-			term::writestring("Here: ");
-			term::write(line.text, line.len);
-			line = initial;
-			errored = true;
-			return {};
+			error("expected expression");
 		}
 
 		if (op == '+') {
@@ -208,16 +245,13 @@ void eval_line() {
 		printf("%d\n", result.get());
 		memory.prev_result = result.get();
 	} else {
-		term::writestring("ERROR: Please enter an expression!\n");
+		term::writestring("Please enter an expression!\n");
 		return;
 	}
 
 	line.skip_space();
 	if (line.len) {
-		term::writestring("ERROR: Extraneous characters after number!\n");
-		term::writestring(" Extra characters here: ");
-		term::write(line.text, line.len);
-		errored = true;
+		write_error("extraneous text after expression");
 		return;
 	}
 }
