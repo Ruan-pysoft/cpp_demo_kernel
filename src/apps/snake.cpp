@@ -280,10 +280,11 @@ void handle_keypress(State &state, ps2::Event event) {
 void draw(State &state) {
 	using namespace term;
 
+	cursor::disable();
+
 	auto _ = Backbuffer();
 
 	clear();
-	cursor::disable();
 
 	go_to(2, 1);
 	printf("Score: %d", state.score);
