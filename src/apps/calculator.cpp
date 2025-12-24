@@ -547,6 +547,7 @@ void main() {
 	term::writestring("The following binary operations are supported: + - * / % ^\n");
 	term::writestring("The following unary operations are supported: + -\n");
 	term::writestring("Type _ to get the previous result.\n");
+	term::writestring("Variables are supported, but assign a value to them using = first.\n");
 
 	term::writestring("> ");
 
