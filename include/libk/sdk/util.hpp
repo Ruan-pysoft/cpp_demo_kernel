@@ -2,26 +2,44 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdint.h>
+
+#include <cppsupport.hpp>
 
 namespace sdk::util {
 
 template<typename T>
 struct Maybe {
 	bool has;
-	T value;
+	alignas(T) uint8_t storage[sizeof(T)];
 
 	Maybe() : has(false) { }
-	Maybe(T val) : has(true), value(val) { }
+	Maybe(T val) : has(true) {
+		new ((void*)storage) T(val);
+	}
+	~Maybe() {
+		if (has) {
+			get().~T();
+		}
+	}
 
-	inline T get() const {
+	inline const T &get() const {
 		assert(has);
-		return value;
+		return *(T*)storage;
+	}
+	inline T &get() {
+		assert(has);
+		return *(T*)storage;
 	}
 	inline void set(T new_val) {
+		reset();
 		has = true;
-		value = new_val;
+		new (storage) T(new_val);
 	}
 	inline void reset() {
+		if (has) {
+			get().~T();
+		}
 		has = false;
 	}
 };

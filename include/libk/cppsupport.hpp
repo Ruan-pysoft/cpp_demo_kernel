@@ -25,3 +25,9 @@ void operator delete(void *);
 void operator delete[](void *);
 void operator delete(void *, size_t);
 void operator delete[](void *, size_t);
+
+// placement new
+inline void *operator new(size_t, void *p)     throw() { return p; }
+inline void *operator new[](size_t, void *p)   throw() { return p; }
+inline void  operator delete(void *, void *)   throw() { }
+inline void  operator delete[](void *, void *) throw() { }
