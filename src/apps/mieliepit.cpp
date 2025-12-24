@@ -128,7 +128,7 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 
 		--state_ptr->line_len;
 		term::backspace();
-		term::cursor::enable(8, 15);
+		term::cursor::enable();
 	}
 
 	if (key == KEY_ENTER) {
@@ -143,7 +143,7 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		interpret_line();
 		state_ptr->line_len = 0;
 		term::writestring("> ");
-		term::cursor::enable(8, 15);
+		term::cursor::enable();
 		return;
 	}
 

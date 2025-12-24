@@ -20,10 +20,10 @@ Menu::Menu(const MenuEntry *entries, size_t entries_len,
 void Menu::draw() const {
 	using namespace term;
 
+	cursor::disable();
 	auto _ = Backbuffer();
 
 	/* Set up consistent starting state */
-	cursor::disable();
 	resetcolor();
 	clear();
 	go_to(0, 0);
@@ -139,7 +139,7 @@ const MenuEntry &Menu::curr() const {
 }
 
 void Menu::select() const {
-	term::cursor::enable(8, 15);
+	term::cursor::enable();
 	term::resetcolor();
 	term::clear();
 	term::go_to(0, 0);

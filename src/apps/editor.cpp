@@ -23,16 +23,12 @@ State state;
 void display_buffer() {
 	const auto _ = term::Backbuffer();
 
-	term::cursor::disable();
-
 	term::clear();
 	term::go_to(0, 0);
 
 	for (size_t i = 0; i < buffer_len; ++i) {
 		term::putchar(buffer[i]);
 	}
-
-	term::cursor::enable(8, 15);
 }
 
 void input_key(ps2::Key key, char ch, bool capitalise) {
