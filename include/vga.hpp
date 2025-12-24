@@ -52,6 +52,7 @@ namespace term {
 class Backbuffer {
 	static size_t instance_count;
 	vga::entry_t buffer[vga::WIDTH*vga::HEIGHT];
+	bool cursor_was_enabled;
 public:
 	Backbuffer();
 	~Backbuffer();
@@ -78,6 +79,10 @@ void writestring(const char *str);
 
 namespace cursor {
 
+uint8_t start();
+uint8_t end();
+bool is_enabled();
+void enable();
 void enable(uint8_t cursor_start, uint8_t cursor_end);
 void disable();
 void go_to(size_t x, size_t y);

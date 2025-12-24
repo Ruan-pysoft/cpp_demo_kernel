@@ -22,12 +22,13 @@ volatile vga::entry_t *buffer;
 }
 
 size_t Backbuffer::instance_count = 0;
-Backbuffer::Backbuffer() {
+Backbuffer::Backbuffer() : cursor_was_enabled(cursor::is_enabled()) {
 	if (instance_count == 0) {
 		::term::buffer = this->buffer;
 		memcpy(this->buffer, (void*)vga_buffer, sizeof(buffer));
 	}
 	++instance_count;
+	cursor::disable();
 }
 Backbuffer::~Backbuffer() {
 	--instance_count;
@@ -35,6 +36,7 @@ Backbuffer::~Backbuffer() {
 		::term::buffer = vga_buffer;
 		memcpy((void*)vga_buffer, buffer, sizeof(buffer));
 	}
+	if (cursor_was_enabled) cursor::enable();
 }
 
 void init() {
@@ -175,16 +177,42 @@ void writestring(const char *str) {
 
 namespace cursor {
 
+namespace {
+
+uint8_t cursor_start = 0;
+uint8_t cursor_end = 0;
+bool enabled = false;
+
+}
+
+uint8_t start() {
+	return cursor_start;
+}
+uint8_t end() {
+	return cursor_end;
+}
+bool is_enabled() {
+	return enabled;
+}
+void enable() {
+	enable(cursor_start, cursor_end);
+}
 void enable(uint8_t cursor_start, uint8_t cursor_end) {
 	outb(0x3D4, 0x0A);
 	outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
 
 	outb(0x3D4, 0x0B);
 	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
+
+	enabled = true;
+	::term::cursor::cursor_start = cursor_start;
+	::term::cursor::cursor_end = cursor_end;
 }
 void disable() {
 	outb(0x3D4, 0x0A);
 	outb(0x3D5, 0x20);
+
+	enabled = false;
 }
 void go_to(size_t x, size_t y) {
 	const uint16_t pos = y * vga::WIDTH + x;

@@ -1,4 +1,4 @@
- - PEDMAS calculator
+ - PEDMAS calculator [ mostly done ]
    - numbers (int only or floats? first int, I think) [ ints done ]
    - ( parentheses ) [ DONE ]
    - power, factorial [ power of done ]
@@ -20,7 +20,7 @@
    - Multiple buffers
    - Open/New/Delete menu
    - Vi mode?
- - Terminal API improvements:
+ - Terminal API improvements: [ ALL DONE ]
    - Keep track of current cursor config, when enabling cursor auto-restore to previous config
      (start & end scanlines)
    - Auto-disable cursor when aquiring back-buffer? (only re-enable if previously was enabled)
