@@ -366,19 +366,21 @@ void eval_line() {
 }
 
 void input_key(ps2::Key key, char ch, bool capitalise) {
-	if (state.line_len == sizeof(state.line)) {
-		return;
-	}
-
 	if (key == ps2::KEY_BACKSPACE) {
-		if (state.line_len) --state.line_len;
-		term::backspace();
+		if (state.line_len) {
+			--state.line_len;
+			term::backspace();
+		}
 		return;
 	} else if (key == ps2::KEY_ENTER) {
 		term::putchar('\n');
 		eval_line();
 		term::writestring("> ");
 	} else {
+		if (state.line_len == sizeof(state.line)) {
+			return;
+		}
+
 		if (capitalise && 'a' <= ch && ch <= 'z') ch ^= 'a'^'A';
 		state.line[state.line_len++] = ch;
 		term::putchar(ch);
