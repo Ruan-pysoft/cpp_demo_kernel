@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 
+#include <sdk/util.hpp>
+
 #include "ps2.hpp"
 #include "vga.hpp"
 
@@ -9,14 +11,22 @@ namespace editor {
 
 namespace {
 
+using namespace sdk::util;
+
 struct State {
 	bool should_quit = false;
 	bool capslock = false;
 };
 
-char *buffer = nullptr;
-size_t buffer_len = 0;
-size_t buffer_size = 0;
+struct File {
+	struct Cursor {
+		size_t line = 0;
+		size_t col = 0;
+	} cursor;
+	List<String> lines {};
+};
+
+struct File file {};
 
 State state;
 
@@ -26,23 +36,30 @@ void display_buffer() {
 	term::clear();
 	term::go_to(0, 0);
 
-	for (size_t i = 0; i < buffer_len; ++i) {
-		term::putchar(buffer[i]);
+	for (const String *line = file.lines.begin(); line != file.lines.end(); ++line) {
+		if (line != file.lines.begin()) {
+			term::putchar('\n');
+		}
+		line->write();
 	}
 }
 
 void input_key(ps2::Key key, char ch, bool capitalise) {
-	if (buffer_len == buffer_size) {
-		const size_t new_size = buffer_size == 0 ? 1024 : buffer_size * 2;
-		buffer = (char*)realloc(buffer, new_size);
-	}
-
 	if (key == ps2::KEY_BACKSPACE) {
-		if (buffer_len) --buffer_len;
+		if (file.lines.size() && file.lines.back().size()) {
+			file.lines.back().erase(file.lines.back().end()-1);
+		} else if (file.lines.size() > 1) {
+			file.lines.pop_back();
+		}
 		return;
+	} else if (key == ps2::KEY_ENTER) {
+		file.lines.push_back({});
 	} else {
 		if (capitalise && 'a' <= ch && ch <= 'z') ch ^= 'a'^'A';
-		buffer[buffer_len++] = ch;
+		if (file.lines.size() == 0) {
+			file.lines.push_back({});
+		}
+		file.lines.back() += ch;
 	}
 }
 
