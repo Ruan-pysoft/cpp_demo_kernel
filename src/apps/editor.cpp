@@ -17,7 +17,10 @@ using namespace sdk::util;
 struct State {
 	bool should_quit = false;
 	bool capslock = false;
+	bool relative_line_numbers = false;
 };
+
+State state;
 
 struct File {
 	struct Pos {
@@ -327,8 +330,11 @@ struct File {
 			term::writestring(data);
 		}
 	}
-	void write_lineno(size_t row, size_t lineno) {
-		const auto _ = sdk::ColorSwitch(vga::Color::Black, vga::Color::LightGrey);
+	void write_lineno(size_t row, size_t lineno, bool highlight = false) {
+		const auto _ = highlight
+			? sdk::ColorSwitch(vga::Color::LightBrown, vga::Color::DarkGrey)
+			: sdk::ColorSwitch(vga::Color::LightGrey, vga::Color::DarkGrey)
+		;
 
 		size_t col = line_num_width() - 2;
 
@@ -355,7 +361,17 @@ struct File {
 			for (size_t i = 0; i < vga::HEIGHT; ++i) {
 				if (draw_from.line >= lines.size()) break;
 				if (draw_from.col == 0) {
-					write_lineno(i, draw_from.line+1);
+					if (state.relative_line_numbers && draw_from.line != cursor.line) {
+						const size_t rel = draw_from.line < cursor.line
+							? cursor.line - draw_from.line
+							: draw_from.line - cursor.line
+						;
+						write_lineno(i, rel);
+					} else if (state.relative_line_numbers) {
+						write_lineno(i, draw_from.line+1, true);
+					} else {
+						write_lineno(i, draw_from.line+1);
+					}
 				}
 				write_from(i, draw_from);
 				advance(draw_from);
@@ -369,8 +385,6 @@ struct File {
 };
 
 File file {};
-
-State state;
 
 void input_key(ps2::Key key, char ch, bool capitalise) {
 	if (key == ps2::KEY_BACKSPACE) {
@@ -407,7 +421,9 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 
 	if (type != EventType::Press && type != EventType::Bounce) return;
 
-	if (key_ascii_map[key] || key == KEY_BACKSPACE) {
+	const bool command = key_state[KEY_LCTL] || key_state[KEY_RCTL];
+
+	if (!command && (key_ascii_map[key] || key == KEY_BACKSPACE)) {
 		const bool capitalise = key_state[KEY_LSHIFT]
 			|| key_state[KEY_RSHIFT];
 		input_key(key, key_ascii_map[key], capitalise ^ state.capslock);
@@ -422,6 +438,11 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		state.should_quit = true;
 	}
 
+	if (command && key == KEY_R) {
+		state.relative_line_numbers = !state.relative_line_numbers;
+	}
+
+	// TODO: word navigation when holding in control?
 	if (key == KEY_LEFT) {
 		file.move_left();
 	} else if (key == KEY_RIGHT) {
