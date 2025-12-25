@@ -28,6 +28,56 @@ struct File {
 	Pos screen_top {};
 	List<String> lines {};
 
+	void insert_character(Pos at, char c) {
+		if (lines.size() == 0) {
+			lines.push_back({});
+		}
+
+		assert(at.line < lines.size());
+		auto &line = lines[at.line];
+
+		assert(at.col <= line.size());
+
+		line.insert(at.col, c);
+	}
+	void insert_newline(Pos at) {
+		if (lines.size() == 0) {
+			lines.push_back({});
+		}
+
+		assert(at.line < lines.size());
+		auto &line = lines[at.line];
+
+		assert(at.col <= line.size());
+
+		if (at.col == line.size()) {
+			lines.insert(at.line+1, {});
+		} else {
+			lines.insert(at.line+1, line.substr(at.col));
+			line.erase(at.col);
+		}
+	}
+	void delete_character(Pos at) {
+		if (lines.size() == 0) {
+			return;
+		}
+
+		assert(at.line < lines.size());
+		auto &line = lines[at.line];
+
+		assert(at.col <= line.size());
+
+		if (at.col == line.size()) {
+			if (at.line+1 == lines.size()) return;
+
+			line += lines[at.line+1];
+
+			lines.erase(lines.begin() + at.line+1);
+		} else {
+			line.erase(at.col, 1);
+		}
+	}
+
 	size_t line_num_width() {
 		size_t width = 1;
 		size_t lines = this->lines.size();
@@ -161,24 +211,28 @@ State state;
 
 void input_key(ps2::Key key, char ch, bool capitalise) {
 	if (key == ps2::KEY_BACKSPACE) {
-		if (file.lines.size() && file.lines.back().size()) {
-			file.lines.back().erase(file.lines.back().end()-1);
-			--file.cursor.col;
-		} else if (file.lines.size() > 1) {
-			file.lines.pop_back();
-			file.cursor = { file.lines.size()-1, file.lines.back().size() };
+		if (file.cursor.line == 0 && file.cursor.col == 0) {
+			return;
 		}
-		return;
+
+		if (file.cursor.col) {
+			--file.cursor.col;
+		} else {
+			--file.cursor.line;
+			file.cursor.col = file.lines[file.cursor.line].size();
+		}
+
+		file.delete_character(file.cursor);
 	} else if (key == ps2::KEY_ENTER) {
-		if (file.lines.size() == 0) file.lines.push_back({});
-		file.lines.push_back({});
-		file.cursor = { file.lines.size()-1, 0 };
+		file.insert_newline(file.cursor);
+
+		++file.cursor.line;
+		file.cursor.col = 0;
 	} else {
 		if (capitalise && 'a' <= ch && ch <= 'z') ch ^= 'a'^'A';
-		if (file.lines.size() == 0) {
-			file.lines.push_back({});
-		}
-		file.lines.back() += ch;
+
+		file.insert_character(file.cursor, ch);
+
 		++file.cursor.col;
 	}
 }
