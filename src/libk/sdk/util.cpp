@@ -37,14 +37,17 @@ char &String::operator[](size_t index) {
 void String::erase(size_t index, size_t count) {
 	assert(index < len);
 
-	const size_t erase_len = index + count > len ? len - index : count;
+	const size_t erase_len = index + count < count || index + count > len
+		? len - index
+		: count
+	;
 
 	if (erase_len == 0) return;
 
 	for (size_t i = 0; index + erase_len + i < len; ++i) {
 		buf[index + i] = buf[index + erase_len + i];
 	}
-	this->len -= erase_len;
+	len -= erase_len;
 	add_null_terminator();
 }
 void String::erase(iterator first, iterator last) {

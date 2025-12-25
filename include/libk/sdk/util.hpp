@@ -272,6 +272,8 @@ public:
 	}
 	String(const char *str) : String(str, strlen(str)) { }
 	String(const char *str, size_t len) : String(len+1) {
+		this->len = len;
+
 		// no need for explicit null terminator,
 		// buffer is calloc'd so zeroed by default
 		for (size_t i = 0; i < len; ++i) {
