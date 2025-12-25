@@ -41,7 +41,7 @@ void String::erase(size_t index, size_t count) {
 
 	if (erase_len == 0) return;
 
-	for (size_t i = 0; i < erase_len; ++i) {
+	for (size_t i = 0; index + erase_len + i < len; ++i) {
 		buf[index + i] = buf[index + erase_len + i];
 	}
 	this->len -= erase_len;

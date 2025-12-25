@@ -227,11 +227,13 @@ public:
 			it->~T();
 		}
 
+		const size_t erase_len = last - first;
+
 		for (iterator it = last; it != end(); ++it) {
-			new ((void*)it) T(move(*it));
+			new ((void*)(it - erase_len)) T(move(*it));
 		}
 
-		len -= last - first;
+		len -= erase_len;
 	}
 	void erase(iterator pos) {
 		assert(begin() <= pos);
@@ -239,13 +241,6 @@ public:
 
 		erase(pos, pos+1);
 	}
-	// TODO:
-	/*
-	void erase(size_t pos, size_t len) {
-		assert(pos <= len && pos + len <= len);
-		...
-	}
-	*/
 
 	T &back() {
 		assert(len > 0);
