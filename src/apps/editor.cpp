@@ -23,6 +23,10 @@ struct File {
 	struct Pos {
 		size_t line = 0;
 		size_t col = 0;
+
+		bool operator==(const Pos &other) {
+			return line == other.line && col == other.col;
+		}
 	};
 	Pos cursor {};
 	Pos screen_top {};
@@ -131,9 +135,11 @@ struct File {
 			pos.col = 0;
 			return;
 		}
-		if (pos.col >= lines.size()) {
-			++pos.line;
-			pos.col = 0;
+		if (pos.col >= lines[pos.line].size()) {
+			if (pos.line != lines[pos.line].size()-1) {
+				++pos.line;
+				pos.col = 0;
+			} else pos.col = lines[pos.line].size();
 			return;
 		}
 
@@ -147,6 +153,163 @@ struct File {
 			pos.col = 0;
 		}
 	}
+
+	Pos advance_line_forwards(Pos pos) {
+		const size_t content_width = line_content_width();
+
+		if (lines.size() == 0) {
+			return { .line = 0, .col = 0 };
+		} else if (pos.line >= lines.size()) {
+			Pos res = {
+				.line = lines.size()-1,
+				.col = 0,
+			};
+
+			while (res.col + content_width < lines.back().size()) {
+				res.col += content_width;
+			}
+
+			return res;
+		} else if (pos.col >= lines[pos.line].size()) {
+			if (pos.line != lines[pos.line].size()-1) {
+				return {
+					.line = pos.line+1,
+					.col = 0,
+				};
+			} else {
+				Pos res = {
+					.line = pos.line,
+					.col = 0,
+				};
+
+				while (res.col + content_width < lines[res.line].size()) {
+					res.col += content_width;
+				}
+
+				return res;
+			}
+		}
+
+		if (pos.col + content_width < lines[pos.line].size()) {
+			return {
+				.line = pos.line,
+				.col = pos.col + content_width,
+			};
+		} else if (pos.line + 1 < lines.size()) {
+			return {
+				.line = pos.line+1,
+				.col = 0,
+			};
+		} else return pos;
+	}
+	Pos advance_line_backwards(Pos pos) {
+		const size_t content_width = line_content_width();
+
+		if (lines.size() == 0) {
+			return { .line = 0, .col = 0 };
+		} else if (pos.line >= lines.size()) {
+			Pos res = {
+				.line = lines.size()-1,
+				.col = 0,
+			};
+
+			while (res.col + content_width < lines.back().size()) {
+				res.col += content_width;
+			}
+
+			return res;
+		} else if (pos.line == 0 && pos.col == 0) {
+			return pos;
+		}
+
+		if (pos.col == 0) {
+			Pos res = {
+				.line = pos.line-1,
+				.col = 0,
+			};
+
+			while (res.col + content_width < lines[res.line].size()) {
+				res.col += content_width;
+			}
+
+			return res;
+		} else if (pos.col <= content_width) {
+			return {
+				.line = pos.line,
+				.col = 0,
+			};
+		} else {
+			return {
+				.line = pos.line,
+				.col = pos.col - content_width,
+			};
+		}
+	}
+
+	void move_left() {
+		if (cursor.col) --cursor.col;
+		else if (cursor.line) {
+			--cursor.line;
+			cursor.col = lines[cursor.line].size();
+		}
+
+		scroll();
+	}
+	void move_right() {
+		if (cursor.col == lines[cursor.line].size()) {
+			if (cursor.line + 1 < lines.size()) {
+				++cursor.line;
+				cursor.col = 0;
+			}
+		} else {
+			++cursor.col;
+		}
+
+		scroll();
+	}
+	void move_up() {
+		if (cursor.line) {
+			--cursor.line;
+			if (cursor.col > lines[cursor.line].size()) {
+				cursor.col = lines[cursor.line].size();
+			}
+		}
+
+		scroll();
+	}
+	void move_down() {
+		if (cursor.line + 1 < lines.size()) {
+			++cursor.line;
+			if (cursor.col > lines[cursor.line].size()) {
+				cursor.col = lines[cursor.line].size();
+			}
+		}
+
+		scroll();
+	}
+
+	void scroll() {
+		const auto screen_pos = find_screen_pos(cursor);
+
+		if (!screen_pos.has) {
+			screen_top = cursor;
+
+			screen_top = advance_line_backwards(screen_top);
+			screen_top = advance_line_backwards(screen_top);
+		} else {
+			size_t y = screen_pos.get().first;
+
+			while (y < 2) {
+				screen_top = advance_line_backwards(screen_top);
+				++y;
+			}
+			while (y+1 >= vga::HEIGHT - 2) {
+				screen_top = advance_line_forwards(screen_top);
+				--y;
+			}
+		}
+	}
+
 	void write_from(size_t row, Pos pos) {
 		assert(pos.line < lines.size());
 		assert(pos.col < lines[pos.line].size() || pos.col == 0);
@@ -235,6 +398,8 @@ void input_key(ps2::Key key, char ch, bool capitalise) {
 
 		++file.cursor.col;
 	}
+
+	file.scroll();
 }
 
 void handle_keyevent(ps2::EventType type, ps2::Key key) {
@@ -258,34 +423,13 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 	}
 
 	if (key == KEY_LEFT) {
-		if (file.cursor.col) --file.cursor.col;
-		else if (file.cursor.line) {
-			--file.cursor.line;
-			file.cursor.col = file.lines[file.cursor.line].size();
-		}
+		file.move_left();
 	} else if (key == KEY_RIGHT) {
-		if (file.cursor.col == file.lines[file.cursor.line].size()) {
-			if (file.cursor.line + 1 < file.lines.size()) {
-				++file.cursor.line;
-				file.cursor.col = 0;
-			}
-		} else {
-			++file.cursor.col;
-		}
+		file.move_right();
 	} else if (key == KEY_UP) {
-		if (file.cursor.line) {
-			--file.cursor.line;
-			if (file.cursor.col > file.lines[file.cursor.line].size()) {
-				file.cursor.col = file.lines[file.cursor.line].size();
-			}
-		}
+		file.move_up();
 	} else if (key == KEY_DOWN) {
-		if (file.cursor.line + 1 < file.lines.size()) {
-			++file.cursor.line;
-			if (file.cursor.col > file.lines[file.cursor.line].size()) {
-				file.cursor.col = file.lines[file.cursor.line].size();
-			}
-		}
+		file.move_down();
 	}
 }
 
