@@ -24,8 +24,8 @@ struct File {
 		size_t line = 0;
 		size_t col = 0;
 	};
-	Pos cursor;
-	Pos screen_top;
+	Pos cursor {};
+	Pos screen_top {};
 	List<String> lines {};
 
 	size_t line_num_width() {
@@ -46,6 +46,33 @@ struct File {
 		if (line.size() == 0) return 1;
 		const auto content_width = line_content_width();
 		return line.size()/content_width + !!(line.size()%content_width);
+	}
+
+	// returns { row, col } AKA { y, x }
+	Maybe<Pair<size_t, size_t>> find_screen_pos(Pos pos) {
+		if (pos.line < screen_top.line) return {};
+		if (pos.line == screen_top.line && pos.col < screen_top.col) return {};
+
+		if (pos.line >= screen_top.line + vga::HEIGHT) return {};
+
+		const size_t content_width = line_content_width();
+
+		size_t row = 0;
+
+		Pos at = screen_top;
+		while (at.line < pos.line || (at.line == pos.line && at.col + content_width <= pos.col)) {
+			advance(at);
+			++row;
+		}
+
+		const size_t col = at.line > pos.line
+			? line_num_width()
+			: line_num_width() + pos.col - at.col;
+
+		return { {
+			row,
+			col
+		} };
 	}
 
 	void advance(Pos &pos) {
@@ -105,24 +132,30 @@ struct File {
 		}
 	}
 	void draw() {
-		const auto _ = term::Backbuffer();
+		{
+			auto _ = term::Backbuffer();
 
-		term::clear();
-		term::go_to(0, 0);
+			term::clear();
+			term::go_to(0, 0);
 
-		Pos draw_from = screen_top;
-		for (size_t i = 0; i < vga::HEIGHT; ++i) {
-			if (draw_from.line >= lines.size()) break;
-			if (draw_from.col == 0) {
-				write_lineno(i, draw_from.line+1);
+			Pos draw_from = screen_top;
+			for (size_t i = 0; i < vga::HEIGHT; ++i) {
+				if (draw_from.line >= lines.size()) break;
+				if (draw_from.col == 0) {
+					write_lineno(i, draw_from.line+1);
+				}
+				write_from(i, draw_from);
+				advance(draw_from);
 			}
-			write_from(i, draw_from);
-			advance(draw_from);
 		}
+
+		const auto cursor_pos = find_screen_pos(cursor);
+		assert(cursor_pos.has);
+		term::cursor::go_to(cursor_pos.get().second, cursor_pos.get().first);
 	}
 };
 
-struct File file {};
+File file {};
 
 State state;
 
@@ -130,19 +163,23 @@ void input_key(ps2::Key key, char ch, bool capitalise) {
 	if (key == ps2::KEY_BACKSPACE) {
 		if (file.lines.size() && file.lines.back().size()) {
 			file.lines.back().erase(file.lines.back().end()-1);
+			--file.cursor.col;
 		} else if (file.lines.size() > 1) {
 			file.lines.pop_back();
+			file.cursor = { file.lines.size()-1, file.lines.back().size() };
 		}
 		return;
 	} else if (key == ps2::KEY_ENTER) {
 		if (file.lines.size() == 0) file.lines.push_back({});
 		file.lines.push_back({});
+		file.cursor = { file.lines.size()-1, 0 };
 	} else {
 		if (capitalise && 'a' <= ch && ch <= 'z') ch ^= 'a'^'A';
 		if (file.lines.size() == 0) {
 			file.lines.push_back({});
 		}
 		file.lines.back() += ch;
+		++file.cursor.col;
 	}
 }
 
