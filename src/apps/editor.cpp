@@ -256,6 +256,37 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 	if (key == KEY_ESCAPE) {
 		state.should_quit = true;
 	}
+
+	if (key == KEY_LEFT) {
+		if (file.cursor.col) --file.cursor.col;
+		else if (file.cursor.line) {
+			--file.cursor.line;
+			file.cursor.col = file.lines[file.cursor.line].size();
+		}
+	} else if (key == KEY_RIGHT) {
+		if (file.cursor.col == file.lines[file.cursor.line].size()) {
+			if (file.cursor.line + 1 < file.lines.size()) {
+				++file.cursor.line;
+				file.cursor.col = 0;
+			}
+		} else {
+			++file.cursor.col;
+		}
+	} else if (key == KEY_UP) {
+		if (file.cursor.line) {
+			--file.cursor.line;
+			if (file.cursor.col > file.lines[file.cursor.line].size()) {
+				file.cursor.col = file.lines[file.cursor.line].size();
+			}
+		}
+	} else if (key == KEY_DOWN) {
+		if (file.cursor.line + 1 < file.lines.size()) {
+			++file.cursor.line;
+			if (file.cursor.col > file.lines[file.cursor.line].size()) {
+				file.cursor.col = file.lines[file.cursor.line].size();
+			}
+		}
+	}
 }
 
 }
