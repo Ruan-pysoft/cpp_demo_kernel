@@ -400,6 +400,12 @@ void input_key(ps2::Key key, char ch, bool capitalise) {
 		}
 
 		file.delete_character(file.cursor);
+	} else if (key == ps2::KEY_DELETE) {
+		if (file.cursor.line == file.lines.size() && file.cursor.col == file.lines.back().size()) {
+			return;
+		}
+
+		file.delete_character(file.cursor);
 	} else if (key == ps2::KEY_ENTER) {
 		file.insert_newline(file.cursor);
 
@@ -423,7 +429,7 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 
 	const bool command = key_state[KEY_LCTL] || key_state[KEY_RCTL];
 
-	if (!command && (key_ascii_map[key] || key == KEY_BACKSPACE)) {
+	if (!command && (key_ascii_map[key] || key == KEY_BACKSPACE || key == KEY_DELETE)) {
 		const bool capitalise = key_state[KEY_LSHIFT]
 			|| key_state[KEY_RSHIFT];
 		input_key(key, key_ascii_map[key], capitalise ^ state.capslock);
