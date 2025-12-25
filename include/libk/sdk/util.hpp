@@ -152,6 +152,49 @@ public:
 	size_t size() const { return len; }
 	size_t capacity() const { return cap; }
 
+	void insert(size_t before, const T &val) {
+		assert(before <= len);
+
+		if (before == len) {
+			this->push_back(val);
+		} else {
+			if (len == cap) {
+				grow_cap();
+			}
+
+			size_t i = len;
+			while (i --> before) {
+				new ((void*)&buf[i+1]) T(move(*(T*)&buf[i]));
+			}
+
+			new ((void*)&buf[before]) T(val);
+		}
+	}
+	void insert(iterator before, const T &val) {
+		this->insert(before - begin(), val);
+	}
+	void insert(size_t before, T &&val) {
+		assert(before <= len);
+
+		if (before == len) {
+			this->push_back(val);
+		} else {
+			if (len == cap) {
+				grow_cap();
+			}
+
+			size_t i = len;
+			while (i --> before) {
+				new ((void*)&buf[i+1]) T(move(*(T*)&buf[i]));
+			}
+
+			new ((void*)&buf[before]) T(val);
+		}
+	}
+	void insert(iterator before, T &&val) {
+		this->insert(before - begin(), val);
+	}
+
 	void push_back(const T &val) {
 		if (len == cap) {
 			grow_cap();
@@ -173,6 +216,29 @@ public:
 	iterator end() { return (iterator)&buf[len]; }
 	const_iterator end() const { return (const_iterator)&buf[len]; }
 
+	void erase(iterator first, iterator last) {
+		assert(first <= last);
+		assert(begin() <= first);
+		assert(last <= end());
+
+		if (first == last) return;
+
+		for (iterator it = first; it != last; ++it) {
+			it->~T();
+		}
+
+		for (iterator it = last; it != end(); ++it) {
+			new ((void*)it) T(move(*it));
+		}
+
+		len -= last - first;
+	}
+	void erase(iterator pos) {
+		assert(begin() <= pos);
+		assert(pos < end());
+
+		erase(pos, pos+1);
+	}
 	// TODO:
 	/*
 	void erase(size_t pos, size_t len) {
@@ -252,10 +318,24 @@ public:
 	size_t size() const { return len; }
 	size_t capacity() const { return cap; }
 
-	void erase(size_t pos, size_t len);
-	void erase(size_t from);
-	void erase(const_iterator a, const_iterator b);
-	void erase(const_iterator a);
+	// erase at index, min(count, size() - index) characters
+	void erase(size_t index = 0, size_t count = ~static_cast<size_t>(0));
+	void erase(iterator first, iterator last);
+	void erase(iterator position);
+
+	void insert(size_t before, char c);
+	void insert(iterator before, char c);
+	void insert(size_t before, const char *str);
+	void insert(iterator before, const char *str);
+	void insert(size_t before, const String &other);
+	void insert(iterator before, const String &other);
+
+	// TODO: create string_view type and return substrings as string views
+	// (should be much more efficient than creating a new string each time)
+	String substr(size_t first, size_t last);
+	String substr(iterator first, iterator last);
+	String substr(size_t first);
+	String substr(iterator first);
 
 	iterator begin() { return &buf[0]; }
 	const_iterator begin() const { return &buf[0]; }
@@ -267,6 +347,9 @@ public:
 	String &operator+=(char c);
 	String &operator+=(const char *str);
 	String &operator+=(const String &other);
+	String operator+(char c) const;
+	String operator+(const char *str) const;
+	String operator+(const String &other) const;
 
 	void write() const;
 };
