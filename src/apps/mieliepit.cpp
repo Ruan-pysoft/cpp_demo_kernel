@@ -85,12 +85,12 @@ void interpret_line() {
 			putchar('\n');
 			puts(state_ptr->program_state.error);
 		}
-		if (interpreter.len == 0) {
+		if (interpreter.curr_word.len == 0) {
 			puts("@ end of line");
 		} else {
 			printf(
 				"@ word starting at %u: ",
-				interpreter.line - state_ptr->line
+				interpreter.curr_word.text - state_ptr->line
 			);
 			for (size_t i = 0; i < interpreter.curr_word.len; ++i) {
 				putchar(interpreter.curr_word.text[i]);
