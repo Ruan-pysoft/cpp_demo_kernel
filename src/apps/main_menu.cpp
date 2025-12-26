@@ -92,7 +92,7 @@ void pager_test() {
 	}
 }
 
-constexpr MenuEntry menu_entries[] = {
+constexpr MenuEntry<void(*)()> menu_entries[] = {
 	{ "Snake game", snake::main },
 	{ "Mieliepit interpreter (stack-based programming language)", mieliepit::main },
 	{ "Display character map", character_map::main },
@@ -101,7 +101,7 @@ constexpr MenuEntry menu_entries[] = {
 	{ "PEDMAS Calculator", calculator::main },
 };
 constexpr size_t menu_entries_len = sizeof(menu_entries)/sizeof(*menu_entries);
-constexpr MenuEntry hidden_menu_entries[] = {
+constexpr MenuEntry<void(*)()> hidden_menu_entries[] = {
 	{ "DEBUG: QueuedEventLoop Demo", queued_demo::main },
 	{ "DEBUG: CallbackEventLoop Demo", callback_demo::main },
 	{ "DEBUG: IgnoreEventLoop Demo", ignore_demo::main },
@@ -112,7 +112,8 @@ constexpr size_t hidden_menu_entries_len = sizeof(hidden_menu_entries)/sizeof(*h
 }
 
 void main() {
-	Menu menu(
+	Menu<void(*)()> menu(
+		[](const auto &fn) { fn(); },
 		menu_entries, menu_entries_len,
 		hidden_menu_entries, hidden_menu_entries_len,
 		"AVAILABLE APPLICATIONS",
