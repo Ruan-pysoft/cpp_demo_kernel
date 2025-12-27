@@ -200,16 +200,16 @@ bool is_enabled() {
 void enable() {
 	enable(cursor_start, cursor_end);
 }
-void enable(uint8_t cursor_start, uint8_t cursor_end) {
+void enable(uint8_t start, uint8_t end) {
 	outb(0x3D4, 0x0A);
-	outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
+	outb(0x3D5, (inb(0x3D5) & 0xC0) | start);
 
 	outb(0x3D4, 0x0B);
-	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
+	outb(0x3D5, (inb(0x3D5) & 0xE0) | end);
 
 	enabled = true;
-	::term::cursor::cursor_start = cursor_start;
-	::term::cursor::cursor_end = cursor_end;
+	cursor_start = start;
+	cursor_end = end;
 }
 void disable() {
 	outb(0x3D4, 0x0A);

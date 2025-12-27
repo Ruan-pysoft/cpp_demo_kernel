@@ -178,7 +178,6 @@ public:
 		term::clear();
 		term::go_to(0, 0);
 		curr().fun(curr().arg);
-		draw();
 	}
 };
 
