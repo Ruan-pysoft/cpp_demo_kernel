@@ -373,11 +373,15 @@ State state;
 // so that it doesn't get reset on program start
 List<File> files {};
 
-List<menu::Entry<State &>> main_menu_items({
+void open_menu_populate();
+void delete_menu_populate();
+const List<menu::Entry<State &>> main_menu_entries({
 	{ "Open File", [](State &state) {
+		open_menu_populate();
 		state.curr_view = State::View::OpenMenu;
 	}, state },
 	{ "Delete File", [](State &state) {
+		delete_menu_populate();
 		state.curr_view = State::View::DeleteMenu;
 	}, state },
 	{ "New File", [](State &state) {
@@ -391,8 +395,72 @@ List<menu::Entry<State &>> main_menu_items({
 });
 
 menu::Menu<State &> main_menu {
-	main_menu_items, {},
+	main_menu_entries, {},
 	"Editor -- Main Menu"
+};
+
+List<menu::Entry<File *>> open_menu_entries {};
+void open_file(File *file) {
+	state.curr_file.set(file);
+	state.curr_view = State::View::FileEdit;
+}
+void open_menu_populate() {
+	while (open_menu_entries.size()) {
+		open_menu_entries.pop_back();
+	}
+
+	open_menu_entries.push_back({
+		.name = "Back to Main Menu",
+		.fun = [](auto) {
+			state.curr_view = State::View::MainMenu;
+		},
+		.arg = nullptr,
+	});
+
+	for (size_t i = 0; i < files.size(); ++i) {
+		open_menu_entries.push_back({
+			.name = "File # (TODO: implement sprintf-equivalent or something)",
+			.fun = open_file,
+			.arg = &files[i],
+		});
+	}
+}
+
+menu::Menu<File *> open_menu {
+	open_menu_entries, {},
+	"Editor -- Open File"
+};
+
+List<menu::Entry<List<File>::iterator>> delete_menu_entries {};
+void delete_file(List<File>::iterator file) {
+	files.erase(file);
+	delete_menu_populate();
+}
+void delete_menu_populate() {
+	while (delete_menu_entries.size()) {
+		delete_menu_entries.pop_back();
+	}
+
+	delete_menu_entries.push_back({
+		.name = "Back to Main Menu",
+		.fun = [](auto) {
+			state.curr_view = State::View::MainMenu;
+		},
+		.arg = nullptr,
+	});
+
+	for (auto file = files.begin(); file != files.end(); ++file) {
+		delete_menu_entries.push_back({
+			.name = "File # (TODO: implement sprintf-equivalent or something)",
+			.fun = delete_file,
+			.arg = file,
+		});
+	}
+}
+
+menu::Menu<List<File>::iterator> delete_menu {
+	delete_menu_entries, {},
+	"Editor -- Delete File"
 };
 
 void File::draw() {
@@ -507,7 +575,11 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		}
 	} else if (state.curr_view == State::View::MainMenu) {
 		main_menu.handle_key({ .key = key, .type = type });
-	} else assert(false);
+	} else if (state.curr_view == State::View::OpenMenu) {
+		open_menu.handle_key({ .key = key, .type = type });
+	} else if (state.curr_view == State::View::DeleteMenu) {
+		delete_menu.handle_key({ .key = key, .type = type });
+	} else assert(false && "Unknown enum value");
 }
 
 }
@@ -532,10 +604,10 @@ void main() {
 				main_menu.draw();
 			} break;
 			case State::View::OpenMenu: {
-				assert(false);
+				open_menu.draw();
 			} break;
 			case State::View::DeleteMenu: {
-				assert(false);
+				delete_menu.draw();
 			} break;
 			case State::View::FileEdit: {
 				assert(state.curr_file.has);
