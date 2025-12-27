@@ -488,7 +488,7 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		}
 
 		if (key == KEY_ESCAPE) {
-			state.should_quit = true;
+			state.curr_view = State::View::MainMenu;
 		}
 
 		if (command && key == KEY_R) {
