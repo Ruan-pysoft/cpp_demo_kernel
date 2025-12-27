@@ -5,44 +5,49 @@
 
 #include <sdk/eventloop.hpp>
 #include <sdk/terminal.hpp>
+#include <sdk/util.hpp>
 
 #include "ps2.hpp"
 #include "vga.hpp"
 
+namespace menu {
+
+using namespace sdk::util;
+
 template<typename T>
-struct MenuEntry {
+struct Entry {
 	const char *name;
-	T payload;
+	void (*fun)(T);
+	T arg;
 };
 
 template<typename T>
 class Menu {
-	void (*op)(const T&);
-
-	const char *title;
-	size_t title_len;
-	const char *title_hidden;
-	size_t title_hidden_len;
-	const MenuEntry<T> *entries;
-	size_t entries_len;
-	const MenuEntry<T> *hidden;
-	size_t hidden_len;
+	const List<Entry<T>> entries;
+	const List<Entry<T>> entries_hidden;
+	String title;
+	String title_hidden;
 
 	bool show_hidden = false;
 	size_t index = 0;
 public:
-	Menu(void (*op)(const T&), const MenuEntry<T> *entries,
-		size_t entries_len, const MenuEntry<T> *hidden,
-		size_t hidden_len, const char *title,
-		const char *title_hidden = nullptr)
-	: op(op), title(title), title_hidden(title_hidden), entries(entries),
-		entries_len(entries_len), hidden(hidden),
-		hidden_len(hidden_len)
-	{
-		if (title_hidden == nullptr) title_hidden = title;
-		title_len = strlen(title);
-		title_hidden_len = strlen(title_hidden);
-	}
+	Menu(const List<Entry<T>> &entries,
+		const List<Entry<T>> &entries_hidden, const String &title,
+		const String &title_hidden)
+	: entries(entries), entries_hidden(entries_hidden), title(title), title_hidden(title_hidden)
+	{ }
+	Menu(const List<Entry<T>> &entries,
+		const List<Entry<T>> &entries_hidden, const String &title)
+	: Menu(entries, entries_hidden, title, title)
+	{ }
+	Menu(List<Entry<T>> &&entries, List<Entry<T>> &&entries_hidden,
+		const String &title, const String &title_hidden)
+	: entries(entries), entries_hidden(entries_hidden), title(title), title_hidden(title_hidden)
+	{ }
+	Menu(List<Entry<T>> &&entries, List<Entry<T>> &&entries_hidden,
+		const String &title)
+	: Menu(entries, entries_hidden, title, title)
+	{ }
 
 	void draw() const {
 		using namespace term;
@@ -56,24 +61,24 @@ public:
 		go_to(0, 0);
 
 		if (show_hidden) {
-			const size_t offset = (vga::WIDTH - title_hidden_len)/2;
+			const size_t offset = (vga::WIDTH - title_hidden.size())/2;
 
 			go_to(offset, 1);
 			sdk::colors::with(
 				vga::Color::Black, vga::Color::LightRed,
-				writestring, title_hidden
+				writestring, title_hidden.c_str()
 			);
 		} else {
-			const size_t offset = (vga::WIDTH - title_len)/2;
+			const size_t offset = (vga::WIDTH - title.size())/2;
 
 			go_to(offset, 1);
 			sdk::colors::with(
 				vga::Color::Black, vga::Color::LightGrey,
-				writestring, title
+				writestring, title.c_str()
 			);
 		}
 
-		for (size_t i = 0; i < entries_len; ++i) {
+		for (size_t i = 0; i < entries.size(); ++i) {
 			go_to(1, 3 + i);
 			putchar('-');
 
@@ -88,18 +93,18 @@ public:
 		}
 
 		if (show_hidden) {
-			for (size_t i = 0; i < hidden_len; ++i) {
-				go_to(1, 3 + entries_len + i);
+			for (size_t i = 0; i < entries_hidden.size(); ++i) {
+				go_to(1, 3 + entries.size() + i);
 				putchar('-');
 
 				auto colors = sdk::ColorSwitch();
 
-				if (entries_len + i == index) {
+				if (entries.size() + i == index) {
 					colors.set(vga::Color::Black, vga::Color::LightBlue);
 				}
 
-				go_to(3, 3 + entries_len + i);
-				writestring(hidden[i].name);
+				go_to(3, 3 + entries.size() + i);
+				writestring(entries_hidden[i].name);
 			}
 		}
 	}
@@ -139,31 +144,32 @@ public:
 
 	void prev() {
 		if (index > 0) --index;
-		else if (show_hidden) index = entries_len+hidden_len - 1;
-		else index = entries_len - 1;
+		else if (show_hidden) {
+			index = entries.size()+entries_hidden.size() - 1;
+		} else index = entries.size() - 1;
 	}
 	void next() {
-		if (show_hidden && index < entries_len+hidden_len - 1) ++index;
-		else if (!show_hidden && index < entries_len - 1) ++index;
+		if (show_hidden && index < entries.size()+entries_hidden.size() - 1) ++index;
+		else if (!show_hidden && index < entries.size() - 1) ++index;
 		else index = 0;
 	}
 
 	inline bool is_hidden() const { return show_hidden; }
 	void hide() {
 		show_hidden = false;
-		if (index >= entries_len) index = entries_len-1;
+		if (index >= entries.size()) index = entries.size()-1;
 	}
 	void show() {
 		show_hidden = true;
 	}
 	void toggle_hidden() {
 		show_hidden = !show_hidden;
-		if (!show_hidden && index >= entries_len) index = entries_len-1;
+		if (!show_hidden && index >= entries.size()) index = entries.size()-1;
 	}
 
-	const MenuEntry<T> &curr() const {
-		if (index < entries_len) return entries[index];
-		else return hidden[index - entries_len];
+	const Entry<T> &curr() const {
+		if (index < entries.size()) return entries[index];
+		else return entries_hidden[index - entries.size()];
 	}
 
 	void select() const {
@@ -171,7 +177,9 @@ public:
 		term::resetcolor();
 		term::clear();
 		term::go_to(0, 0);
-		op(curr().payload);
+		curr().fun(curr().arg);
 		draw();
 	}
 };
+
+}

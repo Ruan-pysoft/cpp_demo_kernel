@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include <sdk/terminal.hpp>
+#include <sdk/util.hpp>
 
 #include "ps2.hpp"
 #include "vga.hpp"
@@ -22,6 +23,7 @@
 #include "apps/ignore_demo.hpp"
 
 using namespace term;
+using namespace sdk::util;
 
 namespace main_menu {
 
@@ -92,30 +94,33 @@ void pager_test() {
 	}
 }
 
-constexpr MenuEntry<void(*)()> menu_entries[] = {
-	{ "Snake game", snake::main },
-	{ "Mieliepit interpreter (stack-based programming language)", mieliepit::main },
-	{ "Display character map", character_map::main },
-	{ "Text Editor", editor::main },
-	{ "Uptime Tracker", uptime::main },
-	{ "PEDMAS Calculator", calculator::main },
-};
-constexpr size_t menu_entries_len = sizeof(menu_entries)/sizeof(*menu_entries);
-constexpr MenuEntry<void(*)()> hidden_menu_entries[] = {
-	{ "DEBUG: QueuedEventLoop Demo", queued_demo::main },
-	{ "DEBUG: CallbackEventLoop Demo", callback_demo::main },
-	{ "DEBUG: IgnoreEventLoop Demo", ignore_demo::main },
-	{ "DEBUG: Pager Test", pager_test },
-};
-constexpr size_t hidden_menu_entries_len = sizeof(hidden_menu_entries)/sizeof(*hidden_menu_entries);
+using MainFn = void(*)();
+
+void run(MainFn fn) {
+	fn();
+}
+
+const List<menu::Entry<MainFn>> menu_entries({
+	{ "Snake game", run, snake::main },
+	{ "Mieliepit interpreter (stack-based programming language)", run, mieliepit::main },
+	{ "Display character map", run, character_map::main },
+	{ "Text Editor", run, editor::main },
+	{ "Uptime Tracker", run, uptime::main },
+	{ "PEDMAS Calculator", run, calculator::main },
+});
+const List<menu::Entry<MainFn>> hidden_menu_entries({
+	{ "DEBUG: QueuedEventLoop Demo", run, queued_demo::main },
+	{ "DEBUG: CallbackEventLoop Demo", run, callback_demo::main },
+	{ "DEBUG: IgnoreEventLoop Demo", run, ignore_demo::main },
+	{ "DEBUG: Pager Test", run, pager_test },
+});
 
 }
 
 void main() {
-	Menu<void(*)()> menu(
-		[](const auto &fn) { fn(); },
-		menu_entries, menu_entries_len,
-		hidden_menu_entries, hidden_menu_entries_len,
+	menu::Menu<MainFn> menu(
+		menu_entries,
+		hidden_menu_entries,
 		"AVAILABLE APPLICATIONS",
 		"AVAILABLE APPLICATIONS - ADVANCED"
 	);
