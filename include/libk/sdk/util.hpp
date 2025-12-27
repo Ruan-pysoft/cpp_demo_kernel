@@ -92,6 +92,19 @@ public:
 		assert(buf != NULL);
 		assert(cap != 0);
 	}
+	template<size_t N>
+	List(const T (&array)[N])
+	: len(N), cap(N) {
+		buf = (memory_cell_t*)calloc(cap, sizeof(T));
+
+		assert(buf != NULL);
+		assert(len != 0);
+		assert(cap != 0);
+
+		for (size_t i = 0; i < len; ++i) {
+			new ((void*)&buf[i]) T(*(T*)&array[i]);
+		}
+	}
 	~List() {
 		if (buf) {
 			for (auto &elem : *this) {
