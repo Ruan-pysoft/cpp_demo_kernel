@@ -8,19 +8,16 @@
 #include "ps2.hpp"
 #include "vga.hpp"
 
+#include "apps/components/menu.hpp"
+
 namespace editor {
 
 namespace {
 
 using namespace sdk::util;
 
-struct State {
-	bool should_quit = false;
-	bool capslock = false;
-	bool relative_line_numbers = false;
-};
-
-State state;
+struct State;
+extern State state;
 
 struct File {
 	struct Pos {
@@ -350,43 +347,88 @@ struct File {
 			term::putchar(' ');
 		}
 	}
-	void draw() {
-		{
-			auto _ = term::Backbuffer();
-
-			term::clear();
-			term::go_to(0, 0);
-
-			Pos draw_from = screen_top;
-			for (size_t i = 0; i < vga::HEIGHT; ++i) {
-				if (draw_from.line >= lines.size()) break;
-				if (draw_from.col == 0) {
-					if (state.relative_line_numbers && draw_from.line != cursor.line) {
-						const size_t rel = draw_from.line < cursor.line
-							? cursor.line - draw_from.line
-							: draw_from.line - cursor.line
-						;
-						write_lineno(i, rel);
-					} else if (state.relative_line_numbers) {
-						write_lineno(i, draw_from.line+1, true);
-					} else {
-						write_lineno(i, draw_from.line+1);
-					}
-				}
-				write_from(i, draw_from);
-				advance(draw_from);
-			}
-		}
-
-		const auto cursor_pos = find_screen_pos(cursor);
-		assert(cursor_pos.has);
-		term::cursor::go_to(cursor_pos.get().second, cursor_pos.get().first);
-	}
+	void draw();
 };
 
-File file {};
+struct State {
+	enum class View {
+		MainMenu,
+		OpenMenu,
+		DeleteMenu,
+		FileEdit,
+	};
 
-void input_key(ps2::Key key, char ch, bool capitalise) {
+	View curr_view = View::MainMenu;
+
+	bool should_quit = false;
+	bool capslock = false;
+	bool relative_line_numbers = false;
+
+	Maybe<File*> curr_file {};
+};
+
+State state;
+
+// Keep files as a global static variable
+// so that it doesn't get reset on program start
+List<File> files {};
+
+List<menu::Entry<State &>> main_menu_items({
+	{ "Open File", [](State &state) {
+		state.curr_view = State::View::OpenMenu;
+	}, state },
+	{ "Delete File", [](State &state) {
+		state.curr_view = State::View::DeleteMenu;
+	}, state },
+	{ "New File", [](State &state) {
+		files.push_back({});
+		state.curr_file.set(&files.back());
+		state.curr_view = State::View::FileEdit;
+	}, state },
+	{ "Quit", [](State &state) {
+		state.should_quit = true;
+	}, state },
+});
+
+menu::Menu<State &> main_menu {
+	main_menu_items, {},
+	"Editor -- Main Menu"
+};
+
+void File::draw() {
+	{
+		auto _ = term::Backbuffer();
+
+		term::clear();
+		term::go_to(0, 0);
+
+		Pos draw_from = screen_top;
+		for (size_t i = 0; i < vga::HEIGHT; ++i) {
+			if (draw_from.line >= lines.size()) break;
+			if (draw_from.col == 0) {
+				if (state.relative_line_numbers && draw_from.line != cursor.line) {
+					const size_t rel = draw_from.line < cursor.line
+						? cursor.line - draw_from.line
+						: draw_from.line - cursor.line
+					;
+					write_lineno(i, rel);
+				} else if (state.relative_line_numbers) {
+					write_lineno(i, draw_from.line+1, true);
+				} else {
+					write_lineno(i, draw_from.line+1);
+				}
+			}
+			write_from(i, draw_from);
+			advance(draw_from);
+		}
+	}
+
+	const auto cursor_pos = find_screen_pos(cursor);
+	assert(cursor_pos.has);
+	term::cursor::go_to(cursor_pos.get().second, cursor_pos.get().first);
+}
+
+void input_key(File &file, ps2::Key key, char ch, bool capitalise) {
 	if (key == ps2::KEY_BACKSPACE) {
 		if (file.cursor.line == 0 && file.cursor.col == 0) {
 			return;
@@ -425,39 +467,47 @@ void input_key(ps2::Key key, char ch, bool capitalise) {
 void handle_keyevent(ps2::EventType type, ps2::Key key) {
 	using namespace ps2;
 
-	if (type != EventType::Press && type != EventType::Bounce) return;
+	if (state.curr_view == State::View::FileEdit) {
+		assert(state.curr_file.has);
 
-	const bool command = key_state[KEY_LCTL] || key_state[KEY_RCTL];
+		File &file = *state.curr_file.get();
 
-	if (!command && (key_ascii_map[key] || key == KEY_BACKSPACE || key == KEY_DELETE)) {
-		const bool capitalise = key_state[KEY_LSHIFT]
-			|| key_state[KEY_RSHIFT];
-		input_key(key, key_ascii_map[key], capitalise ^ state.capslock);
-		return;
-	}
+		if (type != EventType::Press && type != EventType::Bounce) return;
 
-	if (key == KEY_CAPSLOCK) {
-		state.capslock = !state.capslock;
-	}
+		const bool command = key_state[KEY_LCTL] || key_state[KEY_RCTL];
 
-	if (key == KEY_ESCAPE) {
-		state.should_quit = true;
-	}
+		if (!command && (key_ascii_map[key] || key == KEY_BACKSPACE || key == KEY_DELETE)) {
+			const bool capitalise = key_state[KEY_LSHIFT]
+				|| key_state[KEY_RSHIFT];
+			input_key(file, key, key_ascii_map[key], capitalise ^ state.capslock);
+			return;
+		}
 
-	if (command && key == KEY_R) {
-		state.relative_line_numbers = !state.relative_line_numbers;
-	}
+		if (key == KEY_CAPSLOCK) {
+			state.capslock = !state.capslock;
+		}
 
-	// TODO: word navigation when holding in control?
-	if (key == KEY_LEFT) {
-		file.move_left();
-	} else if (key == KEY_RIGHT) {
-		file.move_right();
-	} else if (key == KEY_UP) {
-		file.move_up();
-	} else if (key == KEY_DOWN) {
-		file.move_down();
-	}
+		if (key == KEY_ESCAPE) {
+			state.should_quit = true;
+		}
+
+		if (command && key == KEY_R) {
+			state.relative_line_numbers = !state.relative_line_numbers;
+		}
+
+		// TODO: word navigation when holding in control?
+		if (key == KEY_LEFT) {
+			file.move_left();
+		} else if (key == KEY_RIGHT) {
+			file.move_right();
+		} else if (key == KEY_UP) {
+			file.move_up();
+		} else if (key == KEY_DOWN) {
+			file.move_down();
+		}
+	} else if (state.curr_view == State::View::MainMenu) {
+		main_menu.handle_key({ .key = key, .type = type });
+	} else assert(false);
 }
 
 }
@@ -467,7 +517,7 @@ void main() {
 
 	term::disable_autoscroll();
 
-	file.draw();
+	main_menu.draw();
 
 	while (!state.should_quit) {
 		const bool had_events = !ps2::events.empty();
@@ -477,7 +527,22 @@ void main() {
 			handle_keyevent(event.type, event.key);
 		}
 
-		if (had_events) file.draw();
+		if (had_events) switch (state.curr_view) {
+			case State::View::MainMenu: {
+				main_menu.draw();
+			} break;
+			case State::View::OpenMenu: {
+				assert(false);
+			} break;
+			case State::View::DeleteMenu: {
+				assert(false);
+			} break;
+			case State::View::FileEdit: {
+				assert(state.curr_file.has);
+
+				state.curr_file.get()->draw();
+			} break;
+		}
 
 		__asm__ volatile("hlt" ::: "memory");
 	}
