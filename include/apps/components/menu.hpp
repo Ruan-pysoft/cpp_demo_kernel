@@ -23,8 +23,8 @@ struct Entry {
 
 template<typename T>
 class Menu {
-	const List<Entry<T>> entries;
-	const List<Entry<T>> entries_hidden;
+	const List<Entry<T>> &entries;
+	const List<Entry<T>> &entries_hidden;
 	String title;
 	String title_hidden;
 
@@ -38,14 +38,6 @@ public:
 	{ }
 	Menu(const List<Entry<T>> &entries,
 		const List<Entry<T>> &entries_hidden, const String &title)
-	: Menu(entries, entries_hidden, title, title)
-	{ }
-	Menu(List<Entry<T>> &&entries, List<Entry<T>> &&entries_hidden,
-		const String &title, const String &title_hidden)
-	: entries(entries), entries_hidden(entries_hidden), title(title), title_hidden(title_hidden)
-	{ }
-	Menu(List<Entry<T>> &&entries, List<Entry<T>> &&entries_hidden,
-		const String &title)
 	: Menu(entries, entries_hidden, title, title)
 	{ }
 
