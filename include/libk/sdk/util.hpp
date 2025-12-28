@@ -181,6 +181,8 @@ public:
 			}
 
 			new ((void*)&buf[before]) T(val);
+
+			++len;
 		}
 	}
 	void insert(iterator before, const T &val) {
@@ -202,6 +204,8 @@ public:
 			}
 
 			new ((void*)&buf[before]) T(val);
+
+			++len;
 		}
 	}
 	void insert(iterator before, T &&val) {
