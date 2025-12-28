@@ -134,13 +134,27 @@ public:
 	}
 	static void handle_key_of(Menu &menu, ps2::Event key) { menu.handle_key(key); }
 
+	void normalize_select_position() {
+		assert(entries.size() > 0);
+
+		if (show_hidden && index >= entries.size() + entries_hidden.size()) {
+			index = entries.size() + entries_hidden.size() - 1;
+		} else if (!show_hidden && index >= entries.size()) {
+			index = entries.size() - 1;
+		}
+	}
+
 	void prev() {
+		normalize_select_position();
+
 		if (index > 0) --index;
 		else if (show_hidden) {
 			index = entries.size()+entries_hidden.size() - 1;
 		} else index = entries.size() - 1;
 	}
 	void next() {
+		normalize_select_position();
+
 		if (show_hidden && index < entries.size()+entries_hidden.size() - 1) ++index;
 		else if (!show_hidden && index < entries.size() - 1) ++index;
 		else index = 0;
@@ -148,18 +162,29 @@ public:
 
 	inline bool is_hidden() const { return show_hidden; }
 	void hide() {
+		normalize_select_position();
+
 		show_hidden = false;
 		if (index >= entries.size()) index = entries.size()-1;
 	}
 	void show() {
+		normalize_select_position();
+
 		show_hidden = true;
 	}
 	void toggle_hidden() {
+		normalize_select_position();
+
 		show_hidden = !show_hidden;
 		if (!show_hidden && index >= entries.size()) index = entries.size()-1;
 	}
 
 	const Entry<T> &curr() const {
+		assert(
+			(!show_hidden && index < entries.size())
+			|| (show_hidden && index < entries.size() + entries_hidden.size())
+		);
+
 		if (index < entries.size()) return entries[index];
 		else return entries_hidden[index - entries.size()];
 	}

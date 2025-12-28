@@ -609,12 +609,15 @@ void main() {
 			state.curr_file.get()->draw();
 		} else if (had_events) switch (state.curr_menu) {
 			case State::Menu::Main: {
+				main_menu.normalize_select_position();
 				main_menu.draw();
 			} break;
 			case State::Menu::Open: {
+				open_menu.normalize_select_position();
 				open_menu.draw();
 			} break;
 			case State::Menu::Delete: {
+				delete_menu.normalize_select_position();
 				delete_menu.draw();
 			} break;
 		}
