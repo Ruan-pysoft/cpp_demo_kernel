@@ -351,14 +351,14 @@ struct File {
 };
 
 struct State {
-	enum class View {
-		MainMenu,
-		OpenMenu,
-		DeleteMenu,
-		FileEdit,
+	enum class Menu {
+		Main,
+		Open,
+		Delete,
 	};
 
-	View curr_view = View::MainMenu;
+	Menu curr_menu = Menu::Main;
+	bool editing = false;
 
 	bool should_quit = false;
 	bool capslock = false;
@@ -376,18 +376,18 @@ List<File> files {};
 void open_menu_populate();
 void delete_menu_populate();
 const List<menu::Entry<State &>> main_menu_entries({
-	{ "Open File", [](State &state) {
-		open_menu_populate();
-		state.curr_view = State::View::OpenMenu;
-	}, state },
-	{ "Delete File", [](State &state) {
-		delete_menu_populate();
-		state.curr_view = State::View::DeleteMenu;
-	}, state },
 	{ "New File", [](State &state) {
 		files.push_back({});
 		state.curr_file.set(&files.back());
-		state.curr_view = State::View::FileEdit;
+		state.editing = true;
+	}, state },
+	{ "Open File", [](State &state) {
+		open_menu_populate();
+		state.curr_menu = State::Menu::Open;
+	}, state },
+	{ "Delete File", [](State &state) {
+		delete_menu_populate();
+		state.curr_menu = State::Menu::Delete;
 	}, state },
 	{ "Quit", [](State &state) {
 		state.should_quit = true;
@@ -402,7 +402,7 @@ menu::Menu<State &> main_menu {
 List<menu::Entry<File *>> open_menu_entries {};
 void open_file(File *file) {
 	state.curr_file.set(file);
-	state.curr_view = State::View::FileEdit;
+	state.editing = true;
 }
 void open_menu_populate() {
 	while (open_menu_entries.size()) {
@@ -412,7 +412,7 @@ void open_menu_populate() {
 	open_menu_entries.push_back({
 		.name = "Back to Main Menu",
 		.fun = [](auto) {
-			state.curr_view = State::View::MainMenu;
+			state.curr_menu = State::Menu::Main;
 		},
 		.arg = nullptr,
 	});
@@ -444,7 +444,7 @@ void delete_menu_populate() {
 	delete_menu_entries.push_back({
 		.name = "Back to Main Menu",
 		.fun = [](auto) {
-			state.curr_view = State::View::MainMenu;
+			state.curr_menu = State::Menu::Main;
 		},
 		.arg = nullptr,
 	});
@@ -535,7 +535,7 @@ void input_key(File &file, ps2::Key key, char ch, bool capitalise) {
 void handle_keyevent(ps2::EventType type, ps2::Key key) {
 	using namespace ps2;
 
-	if (state.curr_view == State::View::FileEdit) {
+	if (state.editing) {
 		assert(state.curr_file.has);
 
 		File &file = *state.curr_file.get();
@@ -556,7 +556,7 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		}
 
 		if (key == KEY_ESCAPE) {
-			state.curr_view = State::View::MainMenu;
+			state.editing = false;
 		}
 
 		if (command && key == KEY_R) {
@@ -573,13 +573,17 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		} else if (key == KEY_DOWN) {
 			file.move_down();
 		}
-	} else if (state.curr_view == State::View::MainMenu) {
-		main_menu.handle_key({ .key = key, .type = type });
-	} else if (state.curr_view == State::View::OpenMenu) {
-		open_menu.handle_key({ .key = key, .type = type });
-	} else if (state.curr_view == State::View::DeleteMenu) {
-		delete_menu.handle_key({ .key = key, .type = type });
-	} else assert(false && "Unknown enum value");
+	} else switch (state.curr_menu) {
+		case State::Menu::Main: {
+			main_menu.handle_key({ .key = key, .type = type });
+		} break;
+		case State::Menu::Open: {
+			open_menu.handle_key({ .key = key, .type = type });
+		} break;
+		case State::Menu::Delete: {
+			delete_menu.handle_key({ .key = key, .type = type });
+		} break;
+	}
 }
 
 }
@@ -599,20 +603,19 @@ void main() {
 			handle_keyevent(event.type, event.key);
 		}
 
-		if (had_events) switch (state.curr_view) {
-			case State::View::MainMenu: {
+		if (had_events && state.editing) {
+			assert(state.curr_file.has);
+
+			state.curr_file.get()->draw();
+		} else if (had_events) switch (state.curr_menu) {
+			case State::Menu::Main: {
 				main_menu.draw();
 			} break;
-			case State::View::OpenMenu: {
+			case State::Menu::Open: {
 				open_menu.draw();
 			} break;
-			case State::View::DeleteMenu: {
+			case State::Menu::Delete: {
 				delete_menu.draw();
-			} break;
-			case State::View::FileEdit: {
-				assert(state.curr_file.has);
-
-				state.curr_file.get()->draw();
 			} break;
 		}
 
