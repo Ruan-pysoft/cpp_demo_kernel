@@ -16,8 +16,6 @@
 
 namespace mieliepit {
 
-namespace {
-
 constexpr size_t MAX_LINE_LEN = vga::WIDTH - 3;
 constexpr size_t LINE_BUF_LEN = 128; // in order to support more complex pre-defined words
 static_assert(LINE_BUF_LEN >= MAX_LINE_LEN, "a line should be able to contain at least MAX_LINE_LEN characters");
@@ -35,6 +33,9 @@ struct State {
 	State(State&&) = default;
 	State &operator=(State&&) = default;
 };
+
+namespace {
+
 static State *state_ptr = nullptr;
 bool mieliepit_running = false;
 
@@ -236,16 +237,17 @@ void guide_primitive_fn(ProgramState &) {
 	}
 }
 
-void main() {
+Interface::Interface() {
 	assert(!mieliepit_running);
 	mieliepit_running = true;
-	State state{
+	state = (State*)calloc(1, sizeof(State));
+	new ((void*)state) State {
 		.program_state = ProgramState(
 			primitives, PW_COUNT,
 			syntax, SC_COUNT
 		),
 	};
-	state_ptr = &state;
+	state_ptr = state;
 
 	interpret_str(": - ( a b -- a-b ) not inc + ;");
 	interpret_str(": neg ( a -- -a ) 0 swap - ;");
@@ -262,7 +264,26 @@ void main() {
 
 	interpret_str(": show_top ( a -- a ; prints the topmost stack element ) dup print ;");
 	interpret_str(": clear ( ... - ; clears the stack ) stack_len 0 = ? ret drop rec ;");
+}
+Interface::~Interface() {
+	state->~State();
+	free(state);
+	mieliepit_running = false;
+}
 
+void Interface::run(const char *str) {
+	interpret_str(str);
+}
+void Interface::run(const String &str) {
+	run(str.c_str());
+}
+
+void main() {
+	Interface interface{};
+
+	main(interface);
+}
+void main(Interface &) {
 	term::clear();
 	term::go_to(0, 0);
 	puts("Enter `guide` for instructions on usage, or `exit` to exit the program.");
@@ -277,14 +298,14 @@ void main() {
 	run_line("0 1 \255 . clear");
 	*/
 
-	while (!state.should_quit) {
+	while (!state_ptr->should_quit) {
 		while (!ps2::events.empty()) {
 			const auto event = ps2::events.pop();
 			handle_keyevent(event.type, event.key);
 		}
 
-		if (state.has_inp_err && pit::millis >= state.inp_err_until) {
-			state.has_inp_err = false;
+		if (state_ptr->has_inp_err && pit::millis >= state_ptr->inp_err_until) {
+			state_ptr->has_inp_err = false;
 
 			term::advance();
 			term::backspace();
@@ -292,8 +313,6 @@ void main() {
 
 		__asm__ volatile("hlt" ::: "memory");
 	}
-
-	mieliepit_running = false;
 }
 
 }

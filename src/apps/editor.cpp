@@ -8,6 +8,7 @@
 #include "ps2.hpp"
 #include "vga.hpp"
 
+#include "apps/mieliepit.hpp"
 #include "apps/components/menu.hpp"
 
 namespace editor {
@@ -355,6 +356,7 @@ struct State {
 		Main,
 		Open,
 		Delete,
+		Run,
 	};
 
 	Menu curr_menu = Menu::Main;
@@ -375,6 +377,7 @@ List<File> files {};
 
 void open_menu_populate();
 void delete_menu_populate();
+void run_menu_populate();
 const List<menu::Entry<State &>> main_menu_entries({
 	{ "New File", [](State &state) {
 		files.push_back({});
@@ -388,6 +391,10 @@ const List<menu::Entry<State &>> main_menu_entries({
 	{ "Delete File", [](State &state) {
 		delete_menu_populate();
 		state.curr_menu = State::Menu::Delete;
+	}, state },
+	{ "Run Mieliepit Script", [](State &state) {
+		run_menu_populate();
+		state.curr_menu = State::Menu::Run;
 	}, state },
 	{ "Quit", [](State &state) {
 		state.should_quit = true;
@@ -461,6 +468,41 @@ void delete_menu_populate() {
 menu::Menu<List<File>::iterator> delete_menu {
 	delete_menu_entries, {},
 	"Editor -- Delete File"
+};
+
+List<menu::Entry<List<File>::iterator>> run_menu_entries {};
+void run_file(List<File>::iterator file) {
+	auto runner = mieliepit::Interface();
+	for (const auto &line : file->lines) {
+		runner.run(line);
+	}
+	mieliepit::main(runner);
+}
+void run_menu_populate() {
+	while (run_menu_entries.size()) {
+		run_menu_entries.pop_back();
+	}
+
+	run_menu_entries.push_back({
+		.name = "Back to Main Menu",
+		.fun = [](auto) {
+			state.curr_menu = State::Menu::Main;
+		},
+		.arg = nullptr,
+	});
+
+	for (auto file = files.begin(); file != files.end(); ++file) {
+		run_menu_entries.push_back({
+			.name = "File # (TODO: implement sprintf-equivalent or something)",
+			.fun = run_file,
+			.arg = file,
+		});
+	}
+}
+
+menu::Menu<List<File>::iterator> run_menu {
+	run_menu_entries, {},
+	"Editor -- Run Mieliepit Script"
 };
 
 void File::draw() {
@@ -583,6 +625,9 @@ void handle_keyevent(ps2::EventType type, ps2::Key key) {
 		case State::Menu::Delete: {
 			delete_menu.handle_key({ .key = key, .type = type });
 		} break;
+		case State::Menu::Run: {
+			run_menu.handle_key({ .key = key, .type = type });
+		} break;
 	}
 }
 
@@ -619,6 +664,10 @@ void main() {
 			case State::Menu::Delete: {
 				delete_menu.normalize_select_position();
 				delete_menu.draw();
+			} break;
+			case State::Menu::Run: {
+				run_menu.normalize_select_position();
+				run_menu.draw();
 			} break;
 		}
 
