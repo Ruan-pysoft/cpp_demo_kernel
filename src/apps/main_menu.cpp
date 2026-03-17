@@ -18,6 +18,7 @@
 #include "apps/editor.hpp"
 #include "apps/uptime.hpp"
 #include "apps/calculator.hpp"
+#include "apps/pi.hpp"
 #include "apps/queued_demo.hpp"
 #include "apps/callback_demo.hpp"
 #include "apps/ignore_demo.hpp"
@@ -107,6 +108,7 @@ const List<menu::Entry<MainFn>> menu_entries({
 	{ "Text Editor", run, editor::main },
 	{ "Uptime Tracker", run, uptime::main },
 	{ "PEDMAS Calculator", run, calculator::main },
+	{ "Calculate PI", run, pi::main },
 });
 const List<menu::Entry<MainFn>> hidden_menu_entries({
 	{ "DEBUG: QueuedEventLoop Demo", run, queued_demo::main },

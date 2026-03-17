@@ -82,6 +82,8 @@ $CC $CFLAGS -c $SRCDIR/apps/uptime.cpp -o $BUILDDIR/apps/uptime.o
 OBJS="$OBJS $BUILDDIR/apps/uptime.o"
 $CC $CFLAGS -c $SRCDIR/apps/calculator.cpp -o $BUILDDIR/apps/calculator.o
 OBJS="$OBJS $BUILDDIR/apps/calculator.o"
+$CC $CFLAGS -c $SRCDIR/apps/pi.cpp -o $BUILDDIR/apps/pi.o
+OBJS="$OBJS $BUILDDIR/apps/pi.o"
 
 $CC $CFLAGS -c $SRCDIR/apps/components/menu.cpp -o $BUILDDIR/apps/component-menu.o
 OBJS="$OBJS $BUILDDIR/apps/component-menu.o"
