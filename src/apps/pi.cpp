@@ -41,6 +41,7 @@ struct State {
 	int longest_heads = 0;
 	int longest_tails = 0;
 	int total_flipped = 0;
+	double prev_ratio = 0;
 
 	int truncated_rounds = 0;
 	int rounds_complete = 0;
@@ -111,38 +112,44 @@ void draw(State &state) {
 		term::go_to(3, 6);
 		printf("Current estimated value of pi: -");
 	}
-
+	term::go_to(1, 7);
+	printf("Previous ratio of heads/total flips: ");
+	print_double(state.prev_ratio);
 	term::go_to(1, 8);
+	printf("Previous estimated value of pi: ");
+	print_double(state.prev_ratio*4);
+
+	term::go_to(1, 10);
 	printf("Current run:");
-	term::go_to(3, 9);
+	term::go_to(3, 11);
 	printf("Current no. of heads: %d ", state.curr_heads);
 	print_order(state.curr_heads);
-	term::go_to(3, 10);
+	term::go_to(3, 12);
 	printf("Current no. of tails: %d ", state.curr_tails);
 	print_order(state.curr_tails);
-	term::go_to(3, 11);
+	term::go_to(3, 13);
 	printf("Current heads/total: ");
 	if (state.curr_heads+state.curr_tails) {
 		print_double(state.curr_heads/(double)(state.curr_heads+state.curr_tails));
 	} else putchar('/');
 
-	term::go_to(1, 13);
+	term::go_to(1, 15);
 	printf("Longest run so far: %d ", state.longest_run);
 	print_order(state.longest_run);
-	term::go_to(1, 14);
+	term::go_to(1, 16);
 	printf("Longest run of heads so far: %d ", state.longest_heads);
 	print_order(state.longest_heads);
-	term::go_to(1, 15);
+	term::go_to(1, 17);
 	printf("Longest run of tails so far: %d ", state.longest_tails);
 	print_order(state.longest_tails);
-	term::go_to(1, 16);
+	term::go_to(1, 18);
 	printf("Total number of coins flipped so far: %d ", state.total_flipped);
 	print_order(state.total_flipped);
 
-	term::go_to(1, 18);
+	term::go_to(1, 20);
 	printf("Number of truncated rounds: %d ", state.truncated_rounds);
 	print_order(state.truncated_rounds);
-	term::go_to(3, 19);
+	term::go_to(3, 21);
 	printf("(Once 2^28 coin flips has been reached, the ratio is approximated as 0.5)");
 
 	term::go_to(0, 0);
@@ -182,17 +189,17 @@ void tick(State &state) {
 			state.longest_run = state.curr_heads + state.curr_tails;
 		}
 
-		if (state.curr_heads > state.curr_tails) {
-			double ratio = state.curr_heads/(double)(state.curr_heads+state.curr_tails);
-			state.avg_ratio = (state.avg_ratio*state.rounds_complete + ratio)/(state.rounds_complete+1);
+		if (state.curr_heads > state.curr_tails || state.curr_heads + state.curr_tails >= 1<<28) {
+			if (state.curr_heads > state.curr_tails) {
+				state.prev_ratio = state.curr_heads/(double)(state.curr_heads+state.curr_tails);
+			} else {
+				state.prev_ratio = 0.5;
+			}
+			state.avg_ratio = (
+				state.avg_ratio*state.rounds_complete
+				+ state.prev_ratio
+			) / (state.rounds_complete+1);
 			++state.rounds_complete;
-
-			state.curr_heads = 0;
-			state.curr_tails = 0;
-		} else if (state.curr_heads + state.curr_tails >= 1<<28) {
-			state.avg_ratio = (state.avg_ratio*state.rounds_complete + 0.5)/(state.rounds_complete+1);
-			++state.rounds_complete;
-			++state.truncated_rounds;
 
 			state.curr_heads = 0;
 			state.curr_tails = 0;
