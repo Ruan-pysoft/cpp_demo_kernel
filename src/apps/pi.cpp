@@ -42,6 +42,7 @@ struct State {
 	int longest_tails = 0;
 	int total_flipped = 0;
 
+	int truncated_rounds = 0;
 	int rounds_complete = 0;
 	double avg_ratio = 0;
 };
@@ -138,6 +139,12 @@ void draw(State &state) {
 	printf("Total number of coins flipped so far: %d ", state.total_flipped);
 	print_order(state.total_flipped);
 
+	term::go_to(1, 18);
+	printf("Number of truncated rounds: %d ", state.truncated_rounds);
+	print_order(state.truncated_rounds);
+	term::go_to(3, 19);
+	printf("(Once 2^28 coin flips has been reached, the ratio is approximated as 0.5)");
+
 	term::go_to(0, 0);
 }
 
@@ -179,6 +186,13 @@ void tick(State &state) {
 			double ratio = state.curr_heads/(double)(state.curr_heads+state.curr_tails);
 			state.avg_ratio = (state.avg_ratio*state.rounds_complete + ratio)/(state.rounds_complete+1);
 			++state.rounds_complete;
+
+			state.curr_heads = 0;
+			state.curr_tails = 0;
+		} else if (state.curr_heads + state.curr_tails >= 1<<28) {
+			state.avg_ratio = (state.avg_ratio*state.rounds_complete + 0.5)/(state.rounds_complete+1);
+			++state.rounds_complete;
+			++state.truncated_rounds;
 
 			state.curr_heads = 0;
 			state.curr_tails = 0;
