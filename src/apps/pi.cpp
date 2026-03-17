@@ -20,6 +20,12 @@ namespace {
 
 constexpr uint32_t SEED = 42;
 
+enum LastState {
+	LS_HEAD,
+	LS_TAIL,
+	LS_NONE,
+};
+
 struct State {
 	bool should_quit = false;
 
@@ -28,6 +34,14 @@ struct State {
 	int curr_heads = 0;
 	int curr_tails = 0;
 
+	LastState last_state = LS_NONE;
+	int curr_consec = 0;
+
+	int longest_run = 0;
+	int longest_heads = 0;
+	int longest_tails = 0;
+	int total_flipped = 0;
+
 	int rounds_complete = 0;
 	double avg_ratio = 0;
 };
@@ -35,6 +49,25 @@ struct State {
 void handle_keypress(State &state, ps2::Event event) {
 	if (event.type == ps2::EventType::Press && event.key == ps2::KEY_ESCAPE) {
 		state.should_quit = true;
+	}
+}
+
+void print_order(int n) {
+	if (n < 1000) {
+	} else if (n < 1000 * 1000) {
+		printf("(%sthousands)",
+			n < 10 * 1000 ? "" :
+			n < 100 * 1000 ? "tens of " :
+			"hundreds of "
+		);
+	} else if (n < 1000 * 1000 * 1000) {
+		printf("(%smillions)",
+			n < 10 * 1000 * 1000 ? "" :
+			n < 100 * 1000 * 1000 ? "tens of " :
+			"hundreds of "
+		);
+	} else {
+		printf("(billions)");
 	}
 }
 
@@ -81,14 +114,29 @@ void draw(State &state) {
 	term::go_to(1, 8);
 	printf("Current run:");
 	term::go_to(3, 9);
-	printf("Current no. of heads: %d", state.curr_heads);
+	printf("Current no. of heads: %d ", state.curr_heads);
+	print_order(state.curr_heads);
 	term::go_to(3, 10);
-	printf("Current no. of tails: %d", state.curr_tails);
+	printf("Current no. of tails: %d ", state.curr_tails);
+	print_order(state.curr_tails);
 	term::go_to(3, 11);
 	printf("Current heads/total: ");
 	if (state.curr_heads+state.curr_tails) {
 		print_double(state.curr_heads/(double)(state.curr_heads+state.curr_tails));
 	} else putchar('/');
+
+	term::go_to(1, 13);
+	printf("Longest run so far: %d ", state.longest_run);
+	print_order(state.longest_run);
+	term::go_to(1, 14);
+	printf("Longest run of heads so far: %d ", state.longest_heads);
+	print_order(state.longest_heads);
+	term::go_to(1, 15);
+	printf("Longest run of tails so far: %d ", state.longest_tails);
+	print_order(state.longest_tails);
+	term::go_to(1, 16);
+	printf("Total number of coins flipped so far: %d ", state.total_flipped);
+	print_order(state.total_flipped);
 
 	term::go_to(0, 0);
 }
@@ -98,8 +146,33 @@ void tick(State &state) {
 	while (pit::millis < work_until) {
 		if (state.prng.next()&1) {
 			++state.curr_heads;
+			if (state.last_state == LS_HEAD) {
+				++state.curr_consec;
+			} else {
+				if (state.last_state == LS_TAIL && state.longest_tails < state.curr_consec) {
+					state.longest_tails = state.curr_consec;
+				}
+
+				state.last_state = LS_HEAD;
+				state.curr_consec = 1;
+			}
 		} else {
 			++state.curr_tails;
+			if (state.last_state == LS_TAIL) {
+				++state.curr_consec;
+			} else {
+				if (state.last_state == LS_HEAD && state.longest_heads < state.curr_consec) {
+					state.longest_heads = state.curr_consec;
+				}
+
+				state.last_state = LS_TAIL;
+				state.curr_consec = 1;
+			}
+		}
+		++state.total_flipped;
+
+		if (state.curr_heads + state.curr_tails > state.longest_run) {
+			state.longest_run = state.curr_heads + state.curr_tails;
 		}
 
 		if (state.curr_heads > state.curr_tails) {
@@ -114,10 +187,13 @@ void tick(State &state) {
 	}
 }
 
+State state{};
+
 }
 
 void main() {
-	State state{};
+	//State state{};
+	state.should_quit = false;
 
 	draw(state);
 
