@@ -132,6 +132,9 @@ enum class Mode {
 };
 
 struct State {
+	uint32_t next_frame_eta = 0;
+	bool restart_frame = false;
+
 	bool should_quit = false;
 	bool restart = false;
 	bool lost = false;
@@ -272,6 +275,7 @@ void handle_keypress(State &state, ps2::Event event) {
 			if (state.snake.look(new_facing.get())) {
 				update(state);
 				draw(state);
+				state.restart_frame = true;
 			}
 		}
 	}
@@ -366,6 +370,15 @@ void Snake::update(State &state) {
 
 }
 
+uint32_t calc_frame_time(State &state, uint32_t starting_speed = 500, uint32_t ending_speed = 100, int by_score = 16) {
+	// defaults to going from 2 fps to 10 fps
+	uint32_t frame_time = starting_speed;
+	frame_time -= (starting_speed - ending_speed) * state.score / by_score;
+	frame_time = state.score >= by_score ? ending_speed : frame_time;
+	frame_time = state.lost ? starting_speed : frame_time;
+	return frame_time;
+}
+
 void main() {
 	term::disable_autoscroll();
 
@@ -375,26 +388,13 @@ void main() {
 		State state{};
 		state.apple = Pos::random_pos(state.prng);
 
-		sdk::CallbackEventLoop<State&> event_loop {
-			handle_keypress,
-			state,
-		};
-
 		draw(state);
-
-		constexpr uint32_t starting_speed = 500; // 2 fps
-		constexpr uint32_t ending_speed = 100; // 10 fps
-		constexpr int by_score = 16;
 
 		bool skip_frame = true;
 
 		while (!state.should_quit && !state.restart) {
 			if (state.mode == Mode::Game) {
-				uint32_t frame_time = starting_speed;
-				frame_time -= (starting_speed - ending_speed) * state.score / by_score;
-				frame_time = state.score >= by_score ? ending_speed : frame_time;
-				frame_time = state.lost ? starting_speed : frame_time;
-				auto _ = event_loop.get_frame(frame_time/2);
+				state.next_frame_eta = pit::millis + calc_frame_time(state);
 
 				bool sprint = ps2::key_state[ps2::KEY_LSHIFT] || ps2::key_state[ps2::KEY_RSHIFT]
 					|| ps2::key_state[ps2::KEY_LCTL] || ps2::key_state[ps2::KEY_RCTL]
@@ -409,6 +409,21 @@ void main() {
 				state.help_screen_drawn = false;
 
 				skip_frame = !skip_frame;
+
+				while (pit::millis < state.next_frame_eta || state.restart_frame) {
+					asm volatile("hlt");
+					while (!ps2::events.empty()) {
+						handle_keypress(state, ps2::events.pop());
+					}
+					if (state.restart_frame) {
+						state.restart_frame = false;
+						state.next_frame_eta = pit::millis + calc_frame_time(state);
+					}
+				}
+				if (state.restart_frame) {
+					skip_frame = true;
+				}
+				state.restart_frame = false;
 			} else {
 				help_menu::tick(state);
 				if (!state.help_screen_drawn) {
